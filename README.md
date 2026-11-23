@@ -35,7 +35,7 @@ Si toutes les dépendances sont déjà installées pour l'utilisateur courant,
 |---|---|
 | 1. Contexte & Problématique | contexte, questions de recherche, dictionnaire des variables |
 | 2. Processus ML (pas à pas) | audit, EDA, corrélations, comparaison des modèles, matrices de confusion |
-| 3. Prédiction / Verdict | 3 scénarios, formulaire, comparaison des modèles, explication du verdict |
+| 3. Prédiction / Verdict | 3 scénarios, formulaire, comparaison des modèles, matrice de confusion CV, FN/FP par seuil, explication du verdict |
 | 4. Notebook | notebook complet, téléchargeable et affiché |
 | 5. Soutenance (12 points) | plan de présentation : solutions existantes, problème, schéma global, données, justification du modèle, corrélation, résultats, **R² / MAE / MSE**, triage 3 zones, test final, limites et perspectives |
 
@@ -47,11 +47,16 @@ Les matrices de confusion des pages 2 et 5 portent **TN, FP, FN et TP dans chaqu
 Les trois scénarios chargibles donnent trois verdicts différents, calculés sur
 **P(Oui)** (et non sur la confiance globale), avec le modèle amélioré et les seuils appris :
 
-| Scénario | P(Oui) | Classe | Verdict affiché |
+| Scénario | P(Oui) | Classe binaire (seuil 0,21) | Zone / action |
 |---|---:|---|---|
-| 1. Message normal | 0,1 % | Non | 🟢 NORMAL — surveillance courante |
-| 2. Phishing typé IA | 100,0 % | Oui | 🔴 ALERTE — vérification humaine prioritaire |
-| 3. À surveiller | 47,1 % | À vérifier | 🟠 VIGILANCE — revue humaine |
+| 1. Message normal | 0,1 % | Non — légitime | 🟢 NORMAL — surveillance courante |
+| 2. Phishing typé IA | 100,0 % | Oui — malveillant | 🔴 ALERTE — vérification humaine prioritaire |
+| 3. À surveiller | 47,1 % | **Oui — malveillant probable** | 🟠 VIGILANCE — revue humaine |
+
+La **classe binaire** est toujours `Oui` ou `Non` ; la **zone de triage** est une
+action (qui doit agir, à quelle priorité), pas une troisième classe. Le tableau de
+comparaison des modèles affiche les deux séparément : `P(Oui) %`, `Classe (seuil 0,21)`,
+`Zone de triage`, `Action`.
 
 Règle affichée dans l'application :
 
@@ -81,7 +86,9 @@ les graphiques et la matrice de corrélation sont recalculés automatiquement.
 | `model_meta.json` | Seuils appris, bornes des champs, métriques, triage, citation |
 | `dataset_phishing_ia - dataset_phishing_ia.csv` | Jeu de données synthétique (copie locale) |
 | `notebook_ML_IA_confiance_numerique.ipynb` | Notebook de référence, téléchargeable depuis l'app |
+| `Presentation_Projet_Phishing_IA.pptx` | Présentation 18 diapositives, notes orales, images issues du notebook exécuté |
 | `artefacts/seuil_phishing_ia.json` | Protocole de choix du seuil sauvegardé par le notebook |
+| `artefacts/pptx/` | Images extraites du notebook pour la présentation |
 | `requirements.txt` | Dépendances |
 | `.streamlit/config.toml` | Thème clair de l'application |
 
@@ -113,6 +120,35 @@ les graphiques et la matrice de corrélation sont recalculés automatiquement.
 - Page 5 : R², MAE et MSE sont calculés entre la probabilité `P(Oui)` et la vérité encodée 0/1
   (MSE = score de Brier) puis interprétés ; ils mesurent la **calibration**, la décision se juge
   sur la matrice de confusion au seuil appris.
+
+## Matrice de confusion de la validation croisée
+
+La page 3 affiche aussi la matrice **OOF** (out-of-fold) calculée sur le train seul,
+avec les probabilités moyennées sur 5 répétitions de la CV 5-fold, au seuil `0,21` :
+
+| | Prédit `Non` | Prédit `Oui` |
+|---|---:|---:|
+| **Réel `Non`** | TN = 182 | FP = 117 |
+| **Réel `Oui`** | FN = 3 | TP = 114 |
+
+Rappel `Oui` ≈ 97,4 %, précision `Oui` ≈ 49,4 %. Le nombre de FP y est plus élevé
+que sur le test (28) : la CV décrit un régime moyen, le test de 104 messages est une
+seule réalisation. Les deux matrices doivent être lues ensemble.
+
+### FN et FP peuvent-ils atteindre 0 ?
+
+La page 3 affiche un tableau de seuils sur le test. Réponse honnête :
+
+- **FN = 0** est atteignable en baissant fortement le seuil (0,10) : 1 FN devient 0,
+  mais les fausses alertes explosent (environ 41 FP) ;
+- **FP = 0** est atteignable en montant le seuil vers 0,98 : plus aucune fausse alerte,
+  mais 26 malveillants sont manqués ;
+- **à 0,89 ou 0,90**, on obtient bien 1 FP, mais **15 à 18 FN** : ce n'est pas le
+  compromis « 1 FN / 2 FP ». Le triage actuel fait mieux sur la partie automatisée
+  (1 FN / 1 FP) tout en envoyant les cas douteux en revue humaine ;
+- **FN = 0 et FP = 0 en même temps est impossible** sur ce jeu : les distributions des
+  deux classes se chevauchent. Le seuil `0,21` est le compromis de coût `5·FN + FP`
+  retenu ; le triage `0,20 / 0,88` confine les erreurs restantes à une revue humaine.
 
 ## Limites
 

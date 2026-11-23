@@ -220,35 +220,62 @@ def render_notebook(path: Path):
 
 
 def process_figure():
+    """Processus ML réel du projet phishing — 10 étapes, sans fuite de données.
+
+    Correction du schéma initial : le jeu test n'est consulté qu'à l'étape 8,
+    après la sélection du modèle et du seuil sur le train seul. Il n'y a pas
+    de one-hot encoding (toutes les variables explicatives sont numériques).
+    """
     steps = [
-        ("1  Données brutes", "CSV synthétique\nISCAE"),
-        ("2  Audit & nettoyage", "NA, doublons,\ncolonnes exclues"),
-        ("3  Exploration", "distributions,\ncorrélations"),
-        ("4  Split 80/20", "stratifié\nrandom_state=42"),
-        ("5  Pipeline", "imputation → scaling\n→ one-hot → modèle"),
-        ("6  Évaluation", "F1 macro, rappel,\nmatrice de confusion"),
-        ("7  Seuil & alerte", "décision métier\n+ validation humaine"),
-        ("8  Export", "model.joblib\nmodel_meta.json"),
+        ("1  Données brutes", "CSV synthétique ISCAE\n524 lignes, 11 colonnes"),
+        ("2  Audit & nettoyage", "4 doublons, 10 NA\ndate / semaine exclus"),
+        ("3  Exploration (EDA)", "distributions,\ncorrélations"),
+        ("4  Split train / test", "80 / 20 stratifié\nseed 42"),
+        ("5  Pipeline anti-fuite", "log1p(âge), interactions,\nmédiane + scaling"),
+        ("6  Comparaison & CV", "6 modèles, F1 macro\nCV 5-fold + 5×5"),
+        ("7  Seuil appris (train)", "coût 5·FN + FP = 33\n0,21 + triage 0,20/0,88"),
+        ("8  Évaluation test unique", "AUC 0,910, AP 0,810\nmatrice de confusion"),
+        ("9  Importance & erreurs", "permutation,\nFN / FP interprétés"),
+        ("10  Export & app", "joblib + Streamlit\nvalidation humaine"),
     ]
-    fig, ax = plt.subplots(figsize=(13, 2.8))
+    colors = ["#9FD3C7", "#9FD3C7", "#9FD3C7", "#B8D8F2", "#B8D8F2",
+              "#F5D7A1", "#F2B8B5", "#F2B8B5", "#CDB4DB", "#CDB4DB"]
+
+    fig, ax = plt.subplots(figsize=(15, 5.2))
+    ax.set_xlim(0, 15)
+    ax.set_ylim(0, 5.2)
     ax.axis("off")
-    for i, (title, sub) in enumerate(steps):
-        x = i * 1.45
-        rect = FancyBboxPatch((x, 0.35), 1.25, 0.85,
-                              boxstyle="round,pad=0.02,rounding_size=0.08",
-                              linewidth=1.2, edgecolor="#2c3e50", facecolor="#ecf0f1")
-        ax.add_patch(rect)
-        ax.text(x + 0.625, 0.95, title, ha="center", va="center", fontsize=8.5, fontweight="bold")
-        ax.text(x + 0.625, 0.62, sub, ha="center", va="center", fontsize=7.5)
-        if i < len(steps) - 1:
-            ax.annotate("", xy=(x + 1.42, 0.77), xytext=(x + 1.27, 0.77),
-                        arrowprops=dict(arrowstyle="->", lw=1.2))
-    ax.set_xlim(-0.1, 11.7)
-    ax.set_ylim(0, 1.4)
-    ax.set_title("Processus ML — " + CFG["titre"], fontsize=12, fontweight="bold")
+    w, h = 2.5, 1.35
+    pos = ([(0.3 + i * 2.9, 3.4) for i in range(5)]
+           + [(0.3 + (4 - i) * 2.9, 1.1) for i in range(5)])
+
+    for (x, y), (titre, sous), couleur in zip(pos, steps, colors):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.05",
+                                    fc=couleur, ec="#333", lw=1.2))
+        ax.text(x + w / 2, y + h * 0.68, titre, ha="center", va="center",
+                fontsize=10.5, weight="bold")
+        ax.text(x + w / 2, y + h * 0.27, sous, ha="center", va="center", fontsize=8.5)
+
+    for i in range(9):
+        (x1, y1), (x2, y2) = pos[i], pos[i + 1]
+        if i < 4:
+            a, b = (x1 + w + 0.05, y1 + h / 2), (x2 - 0.05, y2 + h / 2)
+        elif i == 4:
+            a, b = (x1 + w / 2, y1 - 0.05), (x2 + w / 2, y2 + h + 0.05)
+        else:
+            a, b = (x1 - 0.05, y1 + h / 2), (x2 + w + 0.05, y2 + h / 2)
+        ax.annotate("", xy=b, xytext=a,
+                    arrowprops=dict(arrowstyle="->", lw=1.8, color="#333"))
+
+    ax.text(7.5, 0.35,
+            "Règle clé : le jeu test n'est lu qu'à l'étape 8. Imputation, standardisation, "
+            "choix du modèle et seuils sont appris sur le train uniquement (aucune fuite).",
+            ha="center", fontsize=9.5, style="italic")
+    ax.set_title("Processus Machine Learning — pré-détection phishing assistée",
+                 fontsize=13, weight="bold")
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=160, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=155, bbox_inches="tight")
     plt.close(fig)
     return buf.getvalue()
 
@@ -352,6 +379,44 @@ def train_compare_models(propre: pd.DataFrame, cle_app: str):
 
 
 @st.cache_data
+def get_cv_confusion(propre: pd.DataFrame, cle_app: str):
+    """Matrice de confusion OOF (validation croisée 5×5 répétée) sur le train seul."""
+    from sklearn.metrics import confusion_matrix
+    from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
+
+    X, y, _, _ = prepare_xy(propre.copy())
+    Xtr, _, ytr, _ = train_test_split(X, y, test_size=0.2, stratify=y,
+                                      random_state=RANDOM_STATE)
+    ytr01 = (ytr == SEVERE).astype(int).values
+    repetitions = []
+    for seed in range(RANDOM_STATE, RANDOM_STATE + 5):
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
+        p = cross_val_predict(make_modele_ameliore(), Xtr, ytr, cv=cv,
+                              method="predict_proba")[:, 1]
+        repetitions.append(p)
+    p_oof = np.mean(repetitions, axis=0)
+    pred = (p_oof >= SEUIL).astype(int)
+    tn, fp, fn, tp = confusion_matrix(ytr01, pred, labels=[0, 1]).ravel()
+    return ytr01, p_oof, (int(tn), int(fp), int(fn), int(tp))
+
+
+def table_fnfp(y_true, p, seuils):
+    """Tableau FN/FP pour montrer qu'un seuil peut annuler FN *ou* FP, jamais les deux."""
+    from sklearn.metrics import confusion_matrix
+    lignes = []
+    for t in seuils:
+        pred = (p >= t).astype(int)
+        tn, fp, fn, tp = confusion_matrix(y_true, pred, labels=[0, 1]).ravel()
+        lignes.append({
+            "Seuil": f"{t:.2f}", "TN": int(tn), "FP": int(fp),
+            "FN": int(fn), "TP": int(tp),
+            "Rappel": round(tp / max(tp + fn, 1), 3),
+            "Précision": round(tp / max(tp + fp, 1), 3),
+        })
+    return pd.DataFrame(lignes)
+
+
+@st.cache_data
 def get_test_predictions(propre: pd.DataFrame, cle_app: str):
     fitted, Xte, yte, num, cat = train_compare_models(propre, cle_app)
     modele = fitted[NOM_AMELIORE]
@@ -379,24 +444,28 @@ def predire(valeurs: dict, modele, meta: dict, seuil: float):
     p_severe = float(proba[severe_idx])
     confiance = float(np.max(proba))
 
+    # Classe binaire : toujours Oui ou Non, jamais une troisième classe.
     binaire = SEVERE if p_severe >= seuil else ORDER[0]
 
-    # Triage 3 zones appris sur le train (CV repetee 5x5) :
-    #   P(Oui) >= seuil_haut (0,88)              -> 🔴 ALERTE (precision OOF >= 85 %)
-    #   seuil_bas (0,20) <= P(Oui) < seuil_haut  -> 🟠 VIGILANCE / revue humaine
-    #   P(Oui) < seuil_bas                       -> 🟢 NORMAL (rappel OOF >= 98 %)
-    # Les cas ambigus ne sont pas classes : ils sont confies a l'analyste.
+    # Triage 3 zones appris sur le train : c'est une ACTION, pas une classe.
+    #   P(Oui) >= seuil_haut (0,88)              -> 🔴 alerte prioritaire
+    #   0,20 <= P(Oui) < 0,88                    -> 🟠 revue humaine
+    #   P(Oui) < 0,20                            -> 🟢 normal
     if p_severe >= SEUIL_HAUT:
+        zone = "🔴 ALERTE"
+        action = "Vérification humaine prioritaire"
         niveau = "🔴 ALERTE — vérification humaine prioritaire"
-        predit = SEVERE
     elif p_severe >= SEUIL_BAS:
+        zone = "🟠 VIGILANCE"
+        action = "À vérifier par un analyste"
         niveau = "🟠 VIGILANCE — revue humaine (à surveiller)"
-        predit = "À vérifier"
     else:
+        zone = "🟢 NORMAL"
+        action = "Surveillance courante"
         niveau = "🟢 NORMAL — surveillance courante"
-        predit = ORDER[0]
-    return {"classe": predit, "binaire": binaire, "confiance": confiance,
-            "p_severe": p_severe, "niveau": niveau,
+
+    return {"classe": binaire, "binaire": binaire, "zone": zone, "action": action,
+            "confiance": confiance, "p_severe": p_severe, "niveau": niveau,
             "probas": dict(zip(classes, proba))}
 
 def expliquer(valeurs: dict):
@@ -978,11 +1047,13 @@ elif page.startswith("3"):
     for i, sc in enumerate(CFG["scenarios"]):
         with scols[i]:
             r = predire(sc["valeurs"], modele, meta, SEUIL)
+            classe_txt = ("Oui — malveillant probable" if r["classe"] == SEVERE
+                          else "Non — légitime")
             st.markdown("**" + sc["nom"] + "**")
             st.caption("Attendu : " + sc["attendu"])
-            st.write("Classe prédite : **" + r["classe"] + "**")
+            st.write("Classe binaire : **" + classe_txt + "**")
             st.write("**P(Oui) : " + format(r["p_severe"], ".1%") + "**")
-            st.write(r["niveau"])
+            st.write("Triage : **" + r["zone"] + "** — " + r["action"])
             if st.button("Charger ce scénario", key="sc_" + str(i)):
                 st.session_state["scenario"] = sc["valeurs"]
                 st.rerun()
@@ -1026,13 +1097,19 @@ elif page.startswith("3"):
         rows = []
         for name, m in comparaison.items():
             r = predire(saisi, m, meta, SEUIL)
-            rows.append({"Modèle": name,
-                         "P(" + SEVERE + ") %": round(r["p_severe"] * 100, 2),
-                         "Confiance %": round(r["confiance"] * 100, 2),
-                         "Classe prédite": r["classe"],
-                         "Verdict": r["niveau"]})
+            rows.append({
+                "Modèle": name,
+                "P(Oui) %": round(r["p_severe"] * 100, 2),
+                "Classe (seuil " + format(SEUIL, ".2f") + ")":
+                    "Oui — malveillant" if r["classe"] == SEVERE else "Non — légitime",
+                "Zone de triage": r["zone"],
+                "Action": r["action"],
+            })
         st.markdown("### Comparaison des modèles (mêmes données formulaire)")
         st.dataframe(pd.DataFrame(rows), **DF_KW, hide_index=True)
+        st.caption("La **classe binaire** reste toujours `Oui` ou `Non` : c'est la décision au seuil "
+                   + format(SEUIL, ".2f") + ". La **zone de triage** indique seulement qui doit agir "
+                   "et à quelle priorité — ce n'est pas une troisième classe.")
 
         # matrices de confusion par modèle sur test
         from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
@@ -1059,11 +1136,58 @@ elif page.startswith("3"):
         best_recall=max(cm_rows, key=lambda r:r['Rappel Oui'])
         st.info(f"**Modèle prioritaire pour la problématique (moins de FN/malveillants manqués)** : {best_recall['Modèle']} — Rappel Oui={best_recall['Rappel Oui']:.2%}, FN={best_recall['FN']}, FP={best_recall['FP']}. Un FN en phishing signifie un message malveillant non détecté.")
 
+        # -------- Matrice de confusion de la validation croisée (OOF, train) --------
+        st.markdown("### Matrice de confusion — validation croisée (OOF, train 416)")
+        ytr01, p_oof, cm_cv = get_cv_confusion(propre, CFG["folder"])
+        tn_cv, fp_cv, fn_cv, tp_cv = cm_cv
+        cvc1, cvc2 = st.columns([2, 3])
+        with cvc1:
+            fig, ax = plt.subplots(figsize=(4.8, 3.6))
+            heatmap_cm(ax, np.array([[tn_cv, fp_cv], [fn_cv, tp_cv]]),
+                       "Validation croisée 5×5 répétée\nOOF — seuil " + format(SEUIL, ".2f"))
+            st.pyplot(fig)
+            plt.close(fig)
+        with cvc2:
+            st.markdown(
+                f"**Rappel Oui : {tp_cv / max(tp_cv + fn_cv, 1):.1%}** · "
+                f"**Précision Oui : {tp_cv / max(tp_cv + fp_cv, 1):.1%}**\n\n"
+                f"TN = {tn_cv} · FP = {fp_cv} · FN = {fn_cv} · TP = {tp_cv}\n\n"
+                "Cette matrice est calculée **uniquement sur le train** (probabilités out-of-fold, "
+                "moyennées sur 5 répétitions de la CV 5-fold). Elle sert à choisir le seuil et le triage ; "
+                "elle n'utilise jamais le test."
+            )
+            st.caption("Le nombre de FP y est plus élevé que sur le test : la CV estime un régime "
+                       "moyen, le test de 104 messages est une seule réalisation. Les deux doivent être lus ensemble.")
+
+        # -------- FN / FP aux seuils extrêmes --------
+        st.markdown("### FN et FP peuvent-ils atteindre 0 ? — réponse chiffrée (test)")
+        p_amel = fitted_cmp[NOM_AMELIORE].predict_proba(Xte_c)[:, list(fitted_cmp[NOM_AMELIORE].classes_).index(SEVERE)]
+        y01_c = (yte_c == SEVERE).astype(int).values
+        tab_ext = table_fnfp(y01_c, p_amel, [0.10, 0.21, 0.50, 0.80, 0.88, 0.90, 0.98])
+        st.dataframe(tab_ext, **DF_KW, hide_index=True)
+        fp_bas = int(tab_ext.loc[tab_ext["Seuil"] == "0.10", "FP"].iloc[0])
+        fn_haut = int(tab_ext.loc[tab_ext["Seuil"] == "0.98", "FN"].iloc[0])
+        st.markdown(
+            f"- **FN = 0** est atteignable en baissant fortement le seuil (ici 0,10) : on attrape tous les "
+            f"malveillants, mais les fausses alertes explosent ({fp_bas} FP).\n"
+            f"- **FP = 0** est atteignable en montant le seuil vers 0,98 : plus aucune fausse alerte, mais "
+            f"{fn_haut} malveillants sont manqués (FN = {fn_haut}).\n"
+            "- **À 0,89 ou 0,90**, on obtient bien 1 FP, mais **15 à 18 FN** : ce n'est pas le compromis "
+            "1 FN / 2 FP recherché. Le triage actuel fait mieux sur la partie automatisée (1 FN / 1 FP) "
+            "tout en envoyant les cas douteux en revue humaine.\n"
+            "- **FN = 0 et FP = 0 simultanément est impossible** sur ce jeu : les distributions des deux "
+            "classes se chevauchent. Le seuil 0,21 est le compromis de coût `5·FN + FP` retenu ; "
+            "le triage 0,20 / 0,88 confine les erreurs restantes à une revue humaine."
+        )
+
         resultat = predire(saisi, modele, meta, SEUIL)
+        classe_txt = ("Oui — malveillant probable" if resultat["classe"] == SEVERE
+                      else "Non — légitime")
         st.markdown("### Verdict final (modèle retenu)")
-        st.write("**Classe prédite :** " + resultat["classe"])
+        st.write("**Classe binaire (seuil " + format(SEUIL, ".2f") + ") :** " + classe_txt)
         st.write("**P(" + SEVERE + ") :** " + format(resultat["p_severe"], ".1%") +
                  " | **Confiance :** " + format(resultat["confiance"], ".1%"))
+        st.write("**Zone de triage :** " + resultat["zone"] + " — " + resultat["action"])
         if resultat["niveau"].startswith("🔴"):
             st.error(resultat["niveau"])
         elif resultat["niveau"].startswith("🟠"):
@@ -1301,6 +1425,33 @@ la validation croisée donne l'inverse (LR 0,785, SVM 0,784, RF 0,771). Il reste
     st.caption("Lecture : le F1 macro en validation croisée estime la performance **sans toucher au test**. "
                "La baseline à 0,42 correspond à « toujours prédire Non » : elle ne détecte aucun phishing, "
                "ce qui montre que l'accuracy seule est trompeuse.")
+
+    st.markdown("**Quel modèle retenir ? — décision selon les métriques**")
+    synthese = S["test"].copy()
+    synthese["F1 CV 5-fold (train)"] = synthese["Modèle"].map(
+        S["cv"].set_index("Modèle")["F1 macro (CV 5-fold, train)"])
+    synthese["Verdict"] = np.where(synthese["Modèle"] == NOM_AMELIORE,
+                                   "✅ RETENU", "référence / écarté")
+    colonnes_synthese = ["Modèle", "F1 CV 5-fold (train)", "F1 macro",
+                         "Rappel Oui", "FN", "FP", "Verdict"]
+    st.dataframe(synthese[colonnes_synthese].sort_values(
+        "F1 CV 5-fold (train)", ascending=False).round(3), **DF_KW, hide_index=True)
+    st.caption(f"**Modèle retenu : {NOM_AMELIORE}.** Le Random Forest affiche le meilleur F1 brut sur le "
+               "test (0,747), mais ce classement est obtenu *sur le test* et contredit la validation "
+               "croisée (LR 0,785 / SVM 0,784 / RF 0,771). La LR améliorée est choisie parce qu'elle "
+               "combine le meilleur classement indépendant du seuil (**AUC 0,910, AP 0,810**), un "
+               f"coût métier minimal (**{5 * rf['fn'] + rf['fp']} = 5·{rf['fn']} + {rf['fp']}**) et une "
+               "interprétation lisible (coefficients + permutation). Le seuil 0,21 et le triage "
+               "0,20 / 0,88 viennent du train, jamais du test.")
+
+    st.markdown(f"**Contrôle immédiat après validation — matrice de confusion (test, seuil {SEUIL:.2f})**")
+    fig_cm, ax_cm = plt.subplots(figsize=(5.4, 4.0))
+    heatmap_cm(ax_cm, S["cm_rf"], f"Modèle retenu — LR améliorée\nseuil {SEUIL:.2f}")
+    fig_cm.tight_layout()
+    st.pyplot(fig_cm)
+    plt.close(fig_cm)
+    st.caption(f"TN={rf['tn']} · FP={rf['fp']} · FN={rf['fn']} · TP={rf['tp']} — le test sert ici de "
+               "contrôle final, jamais à choisir le modèle ou le seuil.")
 
     # ---------------- §9 ----------------
     st.subheader("9. Matrice de corrélation et interprétation")
