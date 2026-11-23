@@ -1,0 +1,70 @@
+{
+  "dataset": "dataset_phishing_ia - dataset_phishing_ia.csv",
+  "target": "message_malveillant",
+  "classes": [
+    "Non",
+    "Oui"
+  ],
+  "seuil": 0.3,
+  "meilleur_modele": "RandomForest",
+  "f1_macro_test": 0.7792,
+  "scores_f1_macro": {
+    "Dummy": 0.419,
+    "LogisticRegression": 0.694,
+    "RandomForest": 0.7792,
+    "KNN": 0.6314,
+    "SVM_RBF": 0.6976
+  },
+  "colonnes_exclues": [
+    "date"
+  ],
+  "citation": "Données synthétiques générées pour un usage pédagogique — ISCAE Master VIC (aucune donnée personnelle).",
+  "num": {
+    "heure_envoi": {
+      "min": 0.0,
+      "max": 23.0,
+      "median": 12.5
+    },
+    "longueur_message": {
+      "min": 60.0,
+      "max": 896.0,
+      "median": 423.0
+    },
+    "nb_liens": {
+      "min": 0.0,
+      "max": 5.0,
+      "median": 1.0
+    },
+    "urgence_score": {
+      "min": 0.0,
+      "max": 10.0,
+      "median": 4.0
+    },
+    "domaine_age_jours": {
+      "min": 1.0,
+      "max": 5874.0,
+      "median": 512.5
+    },
+    "fautes_langue": {
+      "min": 0.0,
+      "max": 6.0,
+      "median": 2.0
+    },
+    "expediteur_connu": {
+      "min": 0.0,
+      "max": 1.0,
+      "median": 0.0
+    },
+    "piece_jointe": {
+      "min": 0.0,
+      "max": 1.0,
+      "median": 0.0
+    },
+    "personnalisation_score": {
+      "min": 0.0,
+      "max": 10.0,
+      "median": 5.0
+    }
+  },
+  "cat": {}
+}

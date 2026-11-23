@@ -1,0 +1,740 @@
+CFG = {   'folder': 'app_phishing_ia',
+    'titre': 'Sécurité — Phishing IA',
+    'page_title': 'Phishing IA Studio',
+    'icon': '🎣',
+    'dataset': 'dataset_phishing_ia - dataset_phishing_ia.csv',
+    'notebook': 'notebook_ML_IA_confiance_numerique.ipynb',
+    'target': 'message_malveillant',
+    'order': ['Non', 'Oui'],
+    'colors': ['#4C78A8', '#E45756'],
+    'drop_cols': ['date'],
+    'seuil': 0.3,
+    'citation': 'Données synthétiques générées pour un usage pédagogique — ISCAE Master VIC (aucune donnée '
+                'personnelle).',
+    'contexte': '\n'
+                "L'IA générative écrit des messages de phishing sans fautes et avec un ton personnalisé. Les "
+                'signes classiques\n'
+                '(fautes de langue, style maladroit) deviennent donc moins fiables. Un responsable sécurité '
+                'doit pourtant\n'
+                'décider, parmi les messages reçus, lesquels méritent une analyse approfondie. Les 520 '
+                'lignes du fichier après\n'
+                'nettoyage sont **synthétiques** : aucun vrai e-mail, aucune donnée personnelle.',
+    'problematique': '\n'
+                     '**Comment détecter un message malveillant quand les signes classiques deviennent moins '
+                     'fiables à cause de\n'
+                     "l'IA, et comment garder un niveau d'alerte explicable ?**\n"
+                     '\n'
+                     'La cible `message_malveillant` est binaire (`Non` / `Oui`) avec 377 `Non` pour 147 '
+                     '`Oui` : les classes sont\n'
+                     "déséquilibrées. L'accuracy seule est trompeuse (prédire toujours `Non` donne déjà ~72 "
+                     '%) : on regarde surtout\n'
+                     'le **rappel** et le **F1** de la classe `Oui`.',
+    'questions': [   '**Q1.** Quels signaux (âge du domaine, urgence, liens, longueur) distinguent un '
+                     'message malveillant ?',
+                     "**Q2.** L'IA générative rend-elle la détection plus difficile (moins de fautes, plus "
+                     'de personnalisation) ?',
+                     '**Q3.** Quel modèle maximise le F1 macro malgré le déséquilibre 377/147 ?',
+                     '**Q4.** Quel seuil de décision faut-il choisir pour limiter les faux négatifs ?',
+                     "**Q5.** Comment expliquer l'alerte à l'analyste qui devra valider ?"],
+    'erreur_couteuse': '\n'
+                       '**Le faux négatif est le plus grave** : un message malveillant classé `Non` passe '
+                       'les filtres et peut\n'
+                       "déclencher une compromission. Le faux positif coûte du temps à l'analyste mais se "
+                       'corrige par validation\n'
+                       'humaine. On a donc fixé un **seuil bas (0,30)** sur `P(Oui)` : plus de rappel (moins '
+                       "d'attaques manquées),\n"
+                       'au prix de plus de faux positifs. Un verdict `Oui` déclenche une vérification, '
+                       'jamais une suppression\n'
+                       'automatique.',
+    'logique': '\n'
+               '1. **X et y** : `y = message_malveillant`. `X` = toutes les colonnes **sauf `date` et '
+               '`semaine`**\n'
+               "   (variables calendaires exclues). Un `assert` vérifie que la cible n'est pas dans `X`.\n"
+               '2. **Pipeline anti-fuite** : imputation médiane des 10 NA de `domaine_age_jours`, '
+               'standardisation des\n'
+               '   numériques, one-hot des catégorielles — ajusté sur le train uniquement.\n'
+               '3. **Comparaison** : `DummyClassifier`, régression logistique, Random Forest, KNN ; critère '
+               '= **F1 macro**.\n'
+               '4. **Décision binaire** : `P(Oui) >= 0,30` → `Oui`, sinon `Non`. Ce seuil favorise le rappel '
+               'car un\n'
+               "   phishing manqué est plus coûteux qu'une fausse alerte.\n"
+               '5. **Alerte** : `Oui` → vérification humaine prioritaire ; `P(Oui)` entre 0,15 et 0,30 → '
+               'vigilance ;\n'
+               '   sinon surveillance courante.\n'
+               '6. **Explication** : les signaux dominants mesurés sur le test sont `domaine_age_jours`, '
+               '`urgence_score`,\n'
+               '   `longueur_message` et `nb_liens` ; ils alimentent les recommandations affichées.\n'
+               "7. **Validation humaine** : aucune suppression automatique, décision finale à l'analyste.",
+    'fields': {   'heure_envoi': ("Heure d'envoi (0-23)", 'Un envoi nocturne est plus suspect.'),
+                  'longueur_message': (   'Longueur du message',
+                                          'Nombre de caractères ; un message très long peut noyer un lien.'),
+                  'nb_liens': ('Nombre de liens', 'Chaque lien augmente le risque.'),
+                  'urgence_score': (   "Score d'urgence (0-10)",
+                                       'Pression temporelle : « agissez maintenant ».'),
+                  'domaine_age_jours': (   'Âge du domaine (jours)',
+                                           'Un domaine très récent est suspect ; 10 valeurs manquantes '
+                                           'imputées par la médiane.'),
+                  'fautes_langue': (   'Nombre de fautes de langue',
+                                       "Signe classique, mais moins fiable avec l'IA générative."),
+                  'expediteur_connu': ('Expéditeur connu (0/1)', '1 = expéditeur déjà connu, 0 = inconnu.'),
+                  'piece_jointe': ('Pièce jointe (0/1)', '1 = pièce jointe présente.'),
+                  'personnalisation_score': (   'Score de personnalisation (0-10)',
+                                                "L'IA sait mieux imiter un collègue ou un service."),
+                  'date': (   'Date de réception',
+                              'Exclue du modèle : variable calendaire sans justification métier.')},
+    'scenarios': [   {   'nom': 'Message normal',
+                         'attendu': 'Non',
+                         'valeurs': {   'heure_envoi': 10,
+                                        'longueur_message': 180,
+                                        'nb_liens': 0,
+                                        'urgence_score': 1,
+                                        'domaine_age_jours': 2200.0,
+                                        'fautes_langue': 0,
+                                        'expediteur_connu': 1,
+                                        'piece_jointe': 0,
+                                        'personnalisation_score': 2}},
+                     {   'nom': 'Phishing typé IA',
+                         'attendu': 'Oui',
+                         'valeurs': {   'heure_envoi': 2,
+                                        'longueur_message': 780,
+                                        'nb_liens': 5,
+                                        'urgence_score': 9,
+                                        'domaine_age_jours': 3.0,
+                                        'fautes_langue': 0,
+                                        'expediteur_connu': 0,
+                                        'piece_jointe': 1,
+                                        'personnalisation_score': 9}},
+                     {   'nom': 'Cas limite',
+                         'attendu': 'Oui / Non',
+                         'valeurs': {   'heure_envoi': 14,
+                                        'longueur_message': 420,
+                                        'nb_liens': 2,
+                                        'urgence_score': 6,
+                                        'domaine_age_jours': 40.0,
+                                        'fautes_langue': 1,
+                                        'expediteur_connu': 1,
+                                        'piece_jointe': 0,
+                                        'personnalisation_score': 7}}],
+    'reason_rules': [   (   'domaine_age_jours',
+                            'lte',
+                            30,
+                            'Domaine très récent : signal dominant du phishing.'),
+                        ('urgence_score', 'gte', 7, "Score d'urgence élevé : pression pour agir vite."),
+                        ('nb_liens', 'gte', 3, 'Plusieurs liens intégrés : risque de redirection trompeuse.'),
+                        ('longueur_message', 'gte', 500, 'Message long : peut masquer le lien malveillant.'),
+                        (   'fautes_langue',
+                            'lte',
+                            1,
+                            "Peu de fautes : l'IA générative rend le message plus crédible."),
+                        ('piece_jointe', 'eq', 1, "Pièce jointe présente : vecteur d'infection classique."),
+                        ('expediteur_connu', 'eq', 0, 'Expéditeur inconnu : à vérifier.')]}
+
+
+import base64
+import inspect
+import io
+import json
+from pathlib import Path
+
+import joblib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import streamlit as st
+from matplotlib.patches import FancyBboxPatch
+
+st.set_page_config(page_title=CFG["page_title"], page_icon=CFG["icon"], layout="wide")
+sns.set_theme(style="whitegrid")
+
+# Compatibilité Streamlit < 1.50 / >= 1.50 (use_container_width -> width)
+DF_KW = {"width": "stretch"} if "width" in inspect.signature(st.dataframe).parameters else {"use_container_width": True}
+IMG_KW = {"width": "stretch"} if "width" in inspect.signature(st.image).parameters else {"use_container_width": True}
+BTN_KW = {"width": "stretch"} if "width" in inspect.signature(st.form_submit_button).parameters else {"use_container_width": True}
+
+ROOT = Path(__file__).parent
+DATA_PATH = ROOT / CFG["dataset"]
+MODEL_PATH = ROOT / "model.joblib"
+META_PATH = ROOT / "model_meta.json"
+NOTEBOOK = ROOT / CFG["notebook"]
+
+TARGET = CFG["target"]
+ORDER = CFG["order"]
+DROP_COLS = CFG["drop_cols"]
+SEUIL = float(CFG["seuil"])
+ORD_MAP = {k: i for i, k in enumerate(ORDER)}
+SEVERE = ORDER[-1]
+RANDOM_STATE = 42
+
+
+@st.cache_resource
+def load_model(model_path, meta_path):
+    return joblib.load(model_path), json.loads(Path(meta_path).read_text(encoding="utf-8"))
+
+
+@st.cache_data
+def load_data(data_path, colonnes_exclues):
+    brut = pd.read_csv(data_path)
+    propre = brut.drop_duplicates().drop(columns=colonnes_exclues, errors="ignore").copy()
+    return brut, propre
+
+
+def render_notebook(path: Path):
+    if not path.exists():
+        st.warning(f"Notebook introuvable : {path.name}")
+        return
+    nb = json.loads(path.read_text(encoding="utf-8"))
+    st.caption(f"{path.name} — {len(nb.get('cells', []))} cellules")
+    with open(path, "rb") as f:
+        st.download_button("Télécharger le notebook (.ipynb)", f, file_name=path.name,
+                           mime="application/x-ipynb+json")
+    for i, cell in enumerate(nb.get("cells", [])):
+        src = "".join(cell.get("source", []))
+        if cell.get("cell_type") == "markdown":
+            st.markdown(src)
+        elif cell.get("cell_type") == "code":
+            st.markdown(f"**Code — cellule {i + 1}**")
+            st.code(src if src.strip() else "# (cellule vide)", language="python")
+            for out in cell.get("outputs", []):
+                typ = out.get("output_type")
+                data = out.get("data", {})
+                if typ == "stream":
+                    txt = "".join(out.get("text", []))
+                    if txt.strip():
+                        st.text(txt)
+                elif typ in {"execute_result", "display_data"}:
+                    if "image/png" in data:
+                        img = data["image/png"]
+                        img = "".join(img) if isinstance(img, list) else img
+                        st.image(base64.b64decode(img))
+                    elif "text/html" in data:
+                        st.components.v1.html("".join(data["text/html"]), height=300, scrolling=True)
+                    elif "text/plain" in data:
+                        txt = "".join(data["text/plain"])
+                        if txt.strip():
+                            st.text(txt)
+                elif typ == "error":
+                    st.error("\n".join(out.get("traceback", [])) or out.get("evalue", "Erreur"))
+
+
+def process_figure():
+    steps = [
+        ("1  Données brutes", "CSV synthétique\nISCAE"),
+        ("2  Audit & nettoyage", "NA, doublons,\ncolonnes exclues"),
+        ("3  Exploration", "distributions,\ncorrélations"),
+        ("4  Split 80/20", "stratifié\nrandom_state=42"),
+        ("5  Pipeline", "imputation → scaling\n→ one-hot → modèle"),
+        ("6  Évaluation", "F1 macro, rappel,\nmatrice de confusion"),
+        ("7  Seuil & alerte", "décision métier\n+ validation humaine"),
+        ("8  Export", "model.joblib\nmodel_meta.json"),
+    ]
+    fig, ax = plt.subplots(figsize=(13, 2.8))
+    ax.axis("off")
+    for i, (title, sub) in enumerate(steps):
+        x = i * 1.45
+        rect = FancyBboxPatch((x, 0.35), 1.25, 0.85,
+                              boxstyle="round,pad=0.02,rounding_size=0.08",
+                              linewidth=1.2, edgecolor="#2c3e50", facecolor="#ecf0f1")
+        ax.add_patch(rect)
+        ax.text(x + 0.625, 0.95, title, ha="center", va="center", fontsize=8.5, fontweight="bold")
+        ax.text(x + 0.625, 0.62, sub, ha="center", va="center", fontsize=7.5)
+        if i < len(steps) - 1:
+            ax.annotate("", xy=(x + 1.42, 0.77), xytext=(x + 1.27, 0.77),
+                        arrowprops=dict(arrowstyle="->", lw=1.2))
+    ax.set_xlim(-0.1, 11.7)
+    ax.set_ylim(0, 1.4)
+    ax.set_title("Processus ML — " + CFG["titre"], fontsize=12, fontweight="bold")
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=160, bbox_inches="tight")
+    plt.close(fig)
+    return buf.getvalue()
+
+
+def prepare_xy(df: pd.DataFrame):
+    X = df.drop(columns=[TARGET]).copy()
+    y = df[TARGET].copy()
+    num = X.select_dtypes(include="number").columns.tolist()
+    cat = [c for c in X.columns if c not in num]
+    for c in cat:
+        X[c] = X[c].astype(str).where(X[c].notna(), np.nan)
+    return X, y, num, cat
+
+
+def make_preprocessor(num, cat):
+    from sklearn.compose import ColumnTransformer
+    from sklearn.impute import SimpleImputer
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+    return ColumnTransformer([
+        ("num", Pipeline([("imp", SimpleImputer(strategy="median")),
+                          ("sc", StandardScaler())]), num),
+        ("cat", Pipeline([("imp", SimpleImputer(strategy="most_frequent")),
+                          ("oh", OneHotEncoder(handle_unknown="ignore"))]), cat),
+    ])
+
+
+@st.cache_resource
+def train_compare_models(propre: pd.DataFrame, cle_app: str):
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import train_test_split
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.pipeline import Pipeline
+
+    X, y, num, cat = prepare_xy(propre.copy())
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, stratify=y,
+                                          random_state=RANDOM_STATE)
+    pre = make_preprocessor(num, cat)
+    defs = {
+        "Régression logistique": LogisticRegression(max_iter=2000, class_weight="balanced",
+                                                    random_state=RANDOM_STATE),
+        "Random Forest": RandomForestClassifier(n_estimators=300, min_samples_leaf=2,
+                                                random_state=RANDOM_STATE, n_jobs=-1),
+        "KNN": KNeighborsClassifier(n_neighbors=7),
+    }
+    fitted = {}
+    for name, estimator in defs.items():
+        pipe = Pipeline([("pre", pre), ("model", estimator)])
+        fitted[name] = pipe.fit(Xtr, ytr)
+    return fitted, Xte, yte, num, cat
+
+
+@st.cache_data
+def get_test_predictions(propre: pd.DataFrame, cle_app: str):
+    fitted, Xte, yte, num, cat = train_compare_models(propre, cle_app)
+    modele = fitted["Random Forest"]
+    proba = modele.predict_proba(Xte)
+    classes = list(modele.classes_)
+    ordinal = sum(proba[:, j] * ORD_MAP[c] for j, c in enumerate(classes))
+    severe_idx = classes.index(SEVERE) if SEVERE in classes else -1
+    p_severe = proba[:, severe_idx]
+    y_true_ord = pd.Series(yte).map(ORD_MAP).astype(float).values
+    return y_true_ord, ordinal, p_severe
+
+
+def predire(valeurs: dict, modele, meta: dict, seuil: float):
+    ligne = pd.DataFrame([valeurs])
+    for col, info in meta["num"].items():
+        if col not in ligne.columns:
+            ligne[col] = info["median"]
+    for col, options in meta["cat"].items():
+        if col not in ligne.columns:
+            ligne[col] = options[0]
+    ligne = ligne[list(meta["num"]) + list(meta["cat"])]
+    proba = modele.predict_proba(ligne)[0]
+    classes = list(modele.classes_)
+    severe_idx = classes.index(SEVERE) if SEVERE in classes else -1
+    p_severe = float(proba[severe_idx])
+    confiance = float(np.max(proba))
+
+    if len(classes) == 2:
+        predit = SEVERE if p_severe >= seuil else ORDER[0]
+    else:
+        predit = classes[int(np.argmax(proba))]
+
+    if predit == SEVERE and confiance >= seuil:
+        niveau = "🔴 ALERTE — vérification humaine prioritaire"
+    elif predit == ORDER[-2] or confiance >= seuil / 2:
+        niveau = "🟠 VIGILANCE — à surveiller"
+    else:
+        niveau = "🟢 NORMAL — surveillance courante"
+    return {"classe": predit, "confiance": confiance, "p_severe": p_severe,
+            "niveau": niveau, "probas": dict(zip(classes, proba))}
+
+
+def expliquer(valeurs: dict):
+    reasons = []
+    for col, op, seuil_rule, text in CFG["reason_rules"]:
+        v = valeurs.get(col)
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            continue
+        try:
+            if op == "gte":
+                ok = float(v) >= seuil_rule
+            elif op == "lte":
+                ok = float(v) <= seuil_rule
+            elif op == "eq":
+                ok = str(v) == str(seuil_rule)
+            elif op == "in":
+                ok = str(v) in seuil_rule
+            else:
+                ok = False
+        except (ValueError, TypeError):
+            ok = False
+        if ok:
+            reasons.append(text)
+    if not reasons:
+        reasons.append("Aucun signal fort isolé : le modèle combine l'ensemble des variables.")
+    return reasons
+
+
+modele, meta = load_model(MODEL_PATH, META_PATH)
+brut, propre = load_data(DATA_PATH, DROP_COLS)
+
+st.title(CFG["icon"] + " " + CFG["titre"])
+st.caption("Mini-projet 3 — ISCAE Master VIC | Prototype pédagogique d'aide à la décision")
+st.markdown("**Données :** " + CFG["citation"])
+
+page = st.sidebar.radio("Navigation", [
+    "1. Contexte & Problématique",
+    "2. Processus ML (pas à pas)",
+    "3. Prédiction / Verdict",
+    "4. Notebook",
+])
+st.sidebar.markdown("---")
+st.sidebar.info("Outil pédagogique. Décision humaine obligatoire — aucun blocage automatique.")
+
+# ------------------------- PAGE 1 -------------------------
+if page.startswith("1"):
+    st.header("1) Contexte, problématique et variables")
+    st.subheader("Contexte général")
+    st.markdown(CFG["contexte"])
+
+    st.subheader("Problématique")
+    st.info(CFG["problematique"])
+
+    st.subheader("Questions de recherche")
+    st.markdown("\n".join("- " + q for q in CFG["questions"]))
+
+    st.subheader("Erreur la plus coûteuse")
+    st.warning(CFG["erreur_couteuse"])
+
+    st.subheader("Processus ML (même démarche que le notebook)")
+    st.image(process_figure(), **IMG_KW)
+
+    st.subheader("Dictionnaire des variables")
+    rows = []
+    for col, (label, meaning) in CFG["fields"].items():
+        kind = "Numérique" if col in meta["num"] else "Catégorielle"
+        rows.append({"Variable": col, "Nom lisible": label, "Type": kind,
+                     "Description / utilité": meaning})
+    rows.append({"Variable": TARGET, "Nom lisible": "Cible",
+                 "Type": "Target", "Description / utilité":
+                 "Classe à prédire (" + ", ".join(ORDER) + "). Jamais utilisée comme variable explicative."})
+    st.dataframe(pd.DataFrame(rows), **DF_KW, hide_index=True)
+    st.caption("Variables exclues du modèle : " + (", ".join(DROP_COLS) if DROP_COLS else "aucune") +
+               " (variable calendaire sans justification métier).")
+
+    st.subheader("Logique : comment le modèle prédit-il ?")
+    st.markdown(CFG["logique"])
+    st.subheader("Quel modèle répond à la problématique ?")
+    st.markdown("""
+- **Problématique** : détecter les messages malveillants assistés par IA, en limitant les attaques manquées.
+- **Modèle retenu (meta)** : **Random Forest** (F1 macro test 0,7792). 
+- **Lecture sécurité** : priorité au **Rappel Oui / FN faibles** (ne pas manquer un phishing). Le seuil bas (0,30) favorise le rappel.
+- **Compromis** : plus de rappel peut augmenter les FP (fausses alertes), gérées par validation humaine. Décision finale humaine obligatoire.
+""")
+
+    st.subheader("Déclaration IA & éthique")
+    st.markdown("""
+    - Jeu de données **synthétique** généré pour un usage pédagogique : **aucune donnée personnelle**, aucun secret.
+    - Modèle entraîné localement avec `scikit-learn`, sans service externe payant.
+    - Le verdict est une **aide à la décision** : un humain (analyste, RSSI, DSI, vérificateur) valide toujours l'action.
+    - Les probabilités et les variables dominantes sont affichées pour rendre la décision explicable.
+    - Biais possibles : données simulées, petit effectif, classes déséquilibrées → ne pas généraliser à la production.
+    """)
+
+# ------------------------- PAGE 2 -------------------------
+elif page.startswith("2"):
+    st.header("2) Processus ML — pas à pas")
+    st.markdown("Chaque étape est illustrée avec les données réelles du dataset. "
+                "**Nom / utilité / lecture / interprétation** sont indiqués pour chaque graphique.")
+
+    st.subheader("Étape 1 — Lecture et audit qualité")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Lignes nettoyées", int(propre.shape[0]))
+    c2.metric("Colonnes", int(brut.shape[1]))
+    c3.metric("Doublons supprimés", int(brut.duplicated().sum()))
+    c4.metric("Valeurs manquantes", int(brut.isna().sum().sum()))
+    st.dataframe(brut.head(8), **DF_KW)
+    with st.expander("Statistiques descriptives (describe)"):
+        st.dataframe(brut.describe(include="all").T, **DF_KW)
+
+    miss = brut.isna().sum()
+    miss = miss[miss > 0]
+    if len(miss):
+        st.markdown("**Valeurs manquantes** : elles sont imputées par la médiane (numériques) "
+                    "ou le mode (catégorielles) dans le pipeline, jamais sur le test.")
+        st.dataframe(miss.rename("nb_NA").to_frame(), **DF_KW)
+
+    st.subheader("Étape 2 — EDA : distribution de la cible")
+    fig, ax = plt.subplots(figsize=(7, 3.5))
+    counts = propre[TARGET].value_counts().reindex(ORDER).fillna(0)
+    ax.bar(ORDER, counts.values, color=CFG["colors"][:len(ORDER)])
+    ax.set_ylabel("Nombre d'observations")
+    ax.set_title("Distribution de " + TARGET)
+    for i, v in enumerate(counts.values):
+        ax.text(i, v + 1, str(int(v)), ha="center")
+    st.pyplot(fig)
+    plt.close(fig)
+    st.caption("**Lecture** : si une classe domine, l'accuracy est trompeuse. On utilise le F1 macro "
+               "et un split stratifié.")
+
+    st.subheader("Étape 3 — EDA : variables numériques par classe")
+    fitted, Xte, yte, num_cols, cat_cols = train_compare_models(propre, CFG["folder"])
+    n = len(num_cols)
+    cols = 3
+    lignes = (n + cols - 1) // cols
+    fig, axes = plt.subplots(lignes, cols, figsize=(13, 3.3 * lignes))
+    axes = np.atleast_1d(axes).ravel()
+    for ax, col in zip(axes, num_cols):
+        for cls, color in zip(ORDER, CFG["colors"][:len(ORDER)]):
+            ax.hist(propre.loc[propre[TARGET] == cls, col].dropna(), bins=12,
+                    alpha=0.45, label=cls, color=color)
+        ax.set_title(col, fontsize=9)
+    for ax in axes[n:]:
+        ax.axis("off")
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper right")
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+    st.caption("**Lecture** : plus les histogrammes sont décalés entre couleurs, plus la variable "
+               "sépare les classes. Un fort chevauchement signifie qu'une variable seule ne suffit pas.")
+
+    st.subheader("Étape 4 — EDA : variable catégorielle et cible")
+    cat_a_montrer = next(iter(meta["cat"]), None)
+    if cat_a_montrer:
+        tmp = propre.copy()
+        tmp["_ord"] = tmp[TARGET].map(ORD_MAP)
+        moy = tmp.groupby(cat_a_montrer, observed=True)["_ord"].mean().sort_values(ascending=False)
+        fig, ax = plt.subplots(figsize=(8, 3.5))
+        ax.bar(moy.index.astype(str), moy.values, color="#72B7B2")
+        ax.set_ylabel("Gravité moyenne (0 → " + str(len(ORDER) - 1) + ")")
+        ax.set_title("Gravité moyenne par " + cat_a_montrer)
+        ax.tick_params(axis="x", rotation=20)
+        st.pyplot(fig)
+        plt.close(fig)
+        st.caption("**Lecture** : une barre haute indique un segment plus à risque. Ce n'est pas "
+                   "une preuve causale : la taille de l'échantillon compte.")
+
+    st.subheader("Étape 5 — Matrice de corrélation")
+    df_corr = propre[num_cols + [TARGET]].copy()
+    df_corr["_ord"] = df_corr[TARGET].map(ORD_MAP)
+    corr = df_corr[num_cols + ["_ord"]].corr(numeric_only=True)
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0, ax=ax)
+    ax.set_title("Corrélation (cible encodée 0 → " + str(len(ORDER) - 1) + ")")
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+    top = corr["_ord"].drop("_ord").sort_values(key=abs, ascending=False)
+    st.dataframe(top.rename("corrélation_avec_cible").to_frame(), **DF_KW)
+    st.caption("**Attention** : corrélation ≠ causalité, et mesure seulement un lien linéaire.")
+
+    st.subheader("Étape 6 — Split, pipeline et modèles")
+    st.code("""ColumnTransformer([
+  ('num', Pipeline([SimpleImputer(median), StandardScaler()]), variables_numériques),
+  ('cat', Pipeline([SimpleImputer(most_frequent), OneHotEncoder(handle_unknown='ignore')]), catégorielles)
+])""", language="python")
+    st.markdown("- Split **80 % train / 20 % test**, `stratify=y`, `random_state=42`.\n"
+                "- Tous les `fit` (médiane, mode, scaler, encodeur) sont faits sur le **train uniquement** "
+                "→ aucun fuite de données.\n"
+                "- Modèles comparés : régression logistique, Random Forest, KNN + baseline.\n"
+                "- Le modèle retenu est sauvegardé dans `model.joblib` avec son seuil dans `model_meta.json`.")
+
+    st.subheader("Étape 7 — Résultats et interprétation")
+    from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+    rows = []
+    for name, m in fitted.items():
+        yp = m.predict(Xte)
+        rows.append({"Modèle": name,
+                     "Accuracy": round(accuracy_score(yte, yp), 4),
+                     "F1 macro": round(f1_score(yte, yp, average="macro", zero_division=0), 4),
+                     "Précision macro": round(precision_score(yte, yp, average="macro", zero_division=0), 4),
+                     "Rappel macro": round(recall_score(yte, yp, average="macro", zero_division=0), 4)})
+    st.dataframe(pd.DataFrame(rows).sort_values("F1 macro", ascending=False),
+                 **DF_KW, hide_index=True)
+    st.caption("**F1 macro = critère principal** : chaque classe a le même poids, ce qui évite d'être "
+               "trompé par le déséquilibre.")
+
+    st.subheader("Étape 8 — Matrices de confusion par modèle (même test)")
+    from sklearn.metrics import confusion_matrix, classification_report, ConfusionMatrixDisplay
+    cm_rows=[]
+    cms={}
+    for name,m in fitted.items():
+        yp=m.predict(Xte)
+        cm=confusion_matrix(yte, yp, labels=ORDER)
+        tn,fp,fn,tp=cm.ravel() if cm.shape==(2,2) else (0,0,0,0)
+        cms[name]=cm
+        cm_rows.append({"Modèle":name,
+                        "Accuracy":round(accuracy_score(yte,yp),4),
+                        "Précision Oui":round(precision_score(yte,yp,pos_label=SEVERE,zero_division=0),4),
+                        "Rappel Oui":round(recall_score(yte,yp,pos_label=SEVERE,zero_division=0),4),
+                        "F1 macro":round(f1_score(yte,yp,average='macro',zero_division=0),4),
+                        "FN (malveillant manqué)":int(fn),"FP (fausse alerte)":int(fp)})
+    cmp_cm=pd.DataFrame(cm_rows).set_index("Modèle").sort_values(["Rappel Oui","F1 macro"], ascending=False)
+    st.dataframe(cmp_cm, **DF_KW)
+    cols=st.columns(3)
+    for i,(name,cm) in enumerate(cms.items()):
+        fig,ax=plt.subplots(figsize=(4.2,3.4))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=ORDER, yticklabels=ORDER, ax=ax, cbar=False)
+        tn,fp,fn,tp=cm.ravel()
+        ax.set_xlabel('Prédit'); ax.set_ylabel('Réel'); ax.set_title(f'{name}\nFN={fn} FP={fp}', fontsize=9)
+        with cols[i%3]:
+            st.pyplot(fig); plt.close(fig)
+            st.caption(f"TN={tn} FP={fp} FN={fn} TP={tp}")
+    best_recall = cmp_cm['Rappel Oui'].idxmax()
+    best_f1 = cmp_cm['F1 macro'].idxmax()
+    st.info(f"**Meilleur Rappel Oui (moins de malveillants manqués)** : {best_recall} — Rappel={cmp_cm.loc[best_recall,'Rappel Oui']:.2%}, FN={int(cmp_cm.loc[best_recall,'FN (malveillant manqué)'])}, FP={int(cmp_cm.loc[best_recall,'FP (fausse alerte)'])}.")
+    st.success(f"**Meilleur F1 macro (équilibre global)** : {best_f1} — F1 macro={cmp_cm.loc[best_f1,'F1 macro']:.4f}.")
+    st.markdown("""
+**Interprétation**
+- **FN (malveillant manqué)** : message malveillant prédit `Non` → erreur la plus coûteuse en sécurité.
+- **FP (fausse alerte)** : message normal prédit `Oui` → coûte du temps à l'analyste.
+- En phishing IA, on priorise souvent **Rappel Oui / moins de FN**, puis on contrôle les FP par validation humaine.
+""")
+    with st.expander("Rapport détaillé par modèle"):
+        choix = st.selectbox("Modèle à inspecter", list(fitted.keys()), key='report_cm')
+        st.text(classification_report(yte, fitted[choix].predict(Xte), labels=ORDER, zero_division=0))
+
+    st.subheader("Étape 9 — Réel vs prédit sur le test")
+    y_true_ord, ordinal_pred, p_severe = get_test_predictions(propre, CFG["folder"])
+    fig, ax = plt.subplots(figsize=(7, 5))
+    jitter = np.random.default_rng(42).normal(0, 0.04, len(y_true_ord))
+    pred_ord = fitted["Random Forest"].predict(Xte)
+    pred_ord_num = pd.Series(pred_ord).map(ORD_MAP).astype(float).values
+    colors = np.where((y_true_ord > pred_ord_num), "#d62728",
+                      np.where((y_true_ord < pred_ord_num), "#ff7f0e", "#2ca02c"))
+    ax.scatter(y_true_ord + jitter, p_severe, c=colors, alpha=0.65,
+               edgecolor="white", linewidth=0.3)
+    ax.axhline(SEUIL, color="red", linestyle="--", label="Seuil = " + format(SEUIL, ".2f"))
+    ax.set_xticks(range(len(ORDER)))
+    ax.set_xticklabels(ORDER)
+    ax.set_ylabel("Probabilité de la classe la plus grave (" + SEVERE + ")")
+    ax.set_ylim(-0.02, 1.02)
+    ax.set_title("Réel vs prédit (test) — probabilité et seuil")
+    ax.legend()
+    st.pyplot(fig)
+    plt.close(fig)
+    st.markdown("""
+**Interprétation (4 zones)**
+- **Ligne rouge (seuil)** : au-dessus → prédit `Oui` (malveillant) ; en dessous → prédit `Non`.
+- **Haut gauche** (Réel Non, au-dessus seuil) : **FP** orange — fausse alerte.
+- **Bas gauche** (Réel Non, sous seuil) : **TN** vert — normal bien classé.
+- **Haut droite** (Réel Oui, au-dessus seuil) : **TP** vert — malveillant détecté.
+- **Bas droite** (Réel Oui, sous seuil) : **FN** rouge — malveillant manqué, erreur la plus coûteuse.
+""")
+
+# ------------------------- PAGE 3 -------------------------
+elif page.startswith("3"):
+    st.header("3) Prédiction / Verdict final")
+    st.markdown("Saisissez une situation. Les modèles comparent la **même entrée**. "
+                "Seuil utilisé : **" + format(SEUIL, ".2f") + "**. Outil d'aide à la décision, "
+                "**pas de décision automatique**.")
+
+    st.subheader("Scénarios de test (3 exemples pédagogiques)")
+    scols = st.columns(3)
+    for i, sc in enumerate(CFG["scenarios"]):
+        with scols[i]:
+            r = predire(sc["valeurs"], modele, meta, SEUIL)
+            st.markdown("**" + sc["nom"] + "**")
+            st.write("Attendu : " + sc["attendu"])
+            st.write("Prédit : " + r["classe"])
+            st.write("Confiance : " + format(r["confiance"], ".1%"))
+            st.write(r["niveau"])
+            if st.button("Charger ce scénario", key="sc_" + str(i)):
+                st.session_state["scenario"] = sc["valeurs"]
+                st.rerun()
+
+    valeurs = dict(st.session_state.get("scenario", {}))
+    saisi = {}
+    with st.form("formulaire_prediction"):
+        colA, colB = st.columns(2)
+        num_items = list(meta["num"].items())
+        half = (len(num_items) + 1) // 2
+        with colA:
+            st.markdown("#### Variables numériques")
+            for col, info in num_items[:half]:
+                label, desc = CFG["fields"].get(col, (col, ""))
+                saisi[col] = st.number_input(
+                    label, min_value=float(info["min"]), max_value=float(info["max"]),
+                    value=float(valeurs.get(col, info["median"])), key="n_" + col, help=desc)
+        with colB:
+            st.markdown("#### Variables numériques (suite)")
+            for col, info in num_items[half:]:
+                label, desc = CFG["fields"].get(col, (col, ""))
+                saisi[col] = st.number_input(
+                    label, min_value=float(info["min"]), max_value=float(info["max"]),
+                    value=float(valeurs.get(col, info["median"])), key="n_" + col, help=desc)
+        st.markdown("#### Variables catégorielles")
+        catcols = st.columns(2)
+        for i, (col, options) in enumerate(meta["cat"].items()):
+            label, desc = CFG["fields"].get(col, (col, ""))
+            with catcols[i % 2]:
+                idx = options.index(str(valeurs[col])) if str(valeurs.get(col)) in options else 0
+                saisi[col] = st.selectbox(label, options, index=idx, key="c_" + col, help=desc)
+        envoyer = st.form_submit_button("Prédire / Comparer les modèles", **BTN_KW)
+
+    if envoyer:
+        st.markdown("### Données saisies")
+        st.dataframe(pd.DataFrame([saisi]), **DF_KW, hide_index=True)
+
+        fitted, _, _, _, _ = train_compare_models(propre, CFG["folder"])
+        comparaison = {"Modèle retenu (joblib)": modele}
+        comparaison.update(fitted)
+        rows = []
+        for name, m in comparaison.items():
+            r = predire(saisi, m, meta, SEUIL)
+            rows.append({"Modèle": name,
+                         "P(" + SEVERE + ") %": round(r["p_severe"] * 100, 2),
+                         "Confiance %": round(r["confiance"] * 100, 2),
+                         "Classe prédite": r["classe"],
+                         "Verdict": r["niveau"]})
+        st.markdown("### Comparaison des modèles (mêmes données formulaire)")
+        st.dataframe(pd.DataFrame(rows), **DF_KW, hide_index=True)
+
+        # matrices de confusion par modèle sur test
+        from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+        fitted_cmp, Xte_c, yte_c, _, _ = train_compare_models(propre, CFG["folder"])
+        cm_rows=[]
+        cms={}
+        for name,m in fitted_cmp.items():
+            yp=m.predict(Xte_c)
+            cm=confusion_matrix(yte_c, yp, labels=ORDER)
+            tn,fp,fn,tp=cm.ravel() if cm.shape==(2,2) else (0,0,0,0)
+            cms[name]=cm
+            cm_rows.append({"Modèle":name,"Accuracy":round(accuracy_score(yte_c,yp),4),"Précision Oui":round(precision_score(yte_c,yp,pos_label=SEVERE,zero_division=0),4),"Rappel Oui":round(recall_score(yte_c,yp,pos_label=SEVERE,zero_division=0),4),"F1 macro":round(f1_score(yte_c,yp,average='macro',zero_division=0),4),"FN":int(fn),"FP":int(fp)})
+        st.markdown("### Matrices de confusion par modèle (même jeu de test)")
+        st.dataframe(pd.DataFrame(cm_rows).set_index('Modèle'), **DF_KW)
+        cmc=st.columns(3)
+        for i,(name,cm) in enumerate(cms.items()):
+            tn,fp,fn,tp=cm.ravel()
+            fig,ax=plt.subplots(figsize=(4.2,3.4))
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=ORDER, yticklabels=ORDER, ax=ax, cbar=False)
+            ax.set_xlabel('Prédit'); ax.set_ylabel('Réel'); ax.set_title(f'{name}\nFN={fn} FP={fp}', fontsize=9)
+            with cmc[i%3]: st.pyplot(fig); plt.close(fig); st.caption(f'TN={tn} FP={fp} FN={fn} TP={tp}')
+        best_recall=max(cm_rows, key=lambda r:r['Rappel Oui'])
+        st.info(f"**Modèle prioritaire pour la problématique (moins de FN/malveillants manqués)** : {best_recall['Modèle']} — Rappel Oui={best_recall['Rappel Oui']:.2%}, FN={best_recall['FN']}, FP={best_recall['FP']}. Un FN en phishing signifie un message malveillant non détecté.")
+
+        resultat = predire(saisi, modele, meta, SEUIL)
+        st.markdown("### Verdict final (modèle retenu)")
+        st.write("**Classe prédite :** " + resultat["classe"])
+        st.write("**P(" + SEVERE + ") :** " + format(resultat["p_severe"], ".1%") +
+                 " | **Confiance :** " + format(resultat["confiance"], ".1%"))
+        if resultat["niveau"].startswith("🔴"):
+            st.error(resultat["niveau"])
+        elif resultat["niveau"].startswith("🟠"):
+            st.warning(resultat["niveau"])
+        else:
+            st.success(resultat["niveau"])
+        with st.expander("Voir toutes les probabilités"):
+            st.dataframe(pd.DataFrame([
+                {"Classe": c, "Probabilité %": round(float(p) * 100, 2)}
+                for c, p in resultat["probas"].items()]), **DF_KW, hide_index=True)
+
+        st.markdown("### Pourquoi ce verdict ? (logique explicable)")
+        st.write("- " + "\n- ".join(expliquer(saisi)))
+        st.warning("Verdict pédagogique issu d'un modèle statistique entraîné sur des données synthétiques. "
+                   "**Validation humaine obligatoire** — aucune action automatique.")
+
+else:
+    st.header("4) Notebook (référence)")
+    st.info("Le notebook contient le code complet, les explications du projet et, une fois exécuté, "
+            "les graphiques et sorties détaillées.")
+    render_notebook(NOTEBOOK)
+
+st.sidebar.markdown("---")
+st.sidebar.caption(CFG["titre"] + " — ISCAE Master VIC")
