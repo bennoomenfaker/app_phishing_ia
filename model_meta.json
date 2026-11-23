@@ -5,9 +5,11 @@
     "Non",
     "Oui"
   ],
-  "seuil": 0.2,
+  "seuil": 0.21,
+  "seuil_bas": 0.2,
+  "seuil_haut": 0.88,
   "meilleur_modele": "LogisticRegression_amelioree",
-  "f1_macro_test": 0.693739906906051,
+  "f1_macro_test": 0.7115255858440938,
   "auc_test": 0.9098850574712644,
   "average_precision_test": 0.8095094639936522,
   "scores_f1_macro": {
@@ -16,7 +18,37 @@
     "RandomForest": 0.7341448569689593,
     "KNN": 0.6314,
     "SVM_RBF": 0.6939624556062912,
-    "LogisticRegression_amelioree": 0.693739906906051
+    "LogisticRegression_amelioree": 0.7115255858440938
+  },
+  "couts": {
+    "FN": 5,
+    "FP": 1,
+    "cout_test": 33
+  },
+  "triage_test": {
+    "automatise": 61,
+    "total": 104,
+    "fn_auto": 1,
+    "fp_auto": 1,
+    "revue_humaine": 43
+  },
+  "validation": {
+    "cv": "StratifiedKFold 5x5 répété sur le train",
+    "auc_oof_moyen": 0.9092073292742189,
+    "ap_oof_moyen": 0.811898684570908,
+    "plateau_cout_oof": "0,20-0,22",
+    "bootstrap_ic95_rappel": [
+      0.886,
+      1.0
+    ],
+    "bootstrap_ic95_precision": [
+      0.368,
+      0.636
+    ],
+    "bootstrap_ic95_fausse_alerte": [
+      0.262,
+      0.481
+    ]
   },
   "colonnes_exclues": [
     "date"
@@ -72,7 +104,8 @@
   "cat": {},
   "protocole": {
     "feature_engineering": "log1p(domaine_age_jours) + 2 interactions, bruit retiré",
-    "seuil": "plus haut seuil avec rappel OOF >= 95 % (train), coût FN=5 / FP=1 publié",
+    "seuil": "plateau de coût OOF 5·FN + FP en CV répétée 5×5 (0,20-0,22), médiane 0,21",
+    "triage": "Normal < 0,20 ; revue humaine 0,20-0,88 ; Alerte >= 0,88",
     "test": "évalué une seule fois, jamais utilisé pour choisir modèle ou seuil"
   }
 }
