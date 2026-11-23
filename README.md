@@ -38,10 +38,65 @@ Si toutes les dépendances sont déjà installées pour l'utilisateur courant,
 | 3. Prédiction / Verdict | 3 scénarios, formulaire, comparaison des modèles, matrice de confusion CV, FN/FP par seuil, explication du verdict |
 | 4. Notebook | notebook complet, téléchargeable et affiché |
 | 5. Soutenance (12 points) | plan de présentation : solutions existantes, problème, schéma global, données, justification du modèle, corrélation, résultats, **R² / MAE / MSE**, triage 3 zones, test final, limites et perspectives |
-| 6. Présentation (soutenance) | la présentation complète en **Markdown** (18 parties + glossaire des métriques), téléchargement du `.pptx` et du notebook |
+| 6. Présentation (soutenance) | la présentation complète en **Markdown** (18 parties + glossaire des métriques), **illustrée avec les graphiques du PPTX**, téléchargement du `.pptx` et du notebook |
 
-Les matrices de confusion des pages 2 et 5 portent **TN, FP, FN et TP dans chaque case**
-(et non seulement dans un texte en dessous).
+Toutes les matrices de confusion (pages 2, 3 et 5) sont des **graphiques annotés** : chaque case
+affiche **TN / FP / FN / TP**, son **effectif** et son **pourcentage**. Aucune matrice n'est affichée
+uniquement sous forme de tableau. Les graphiques de distribution (cible, histogrammes, boxplots,
+variables catégorielles) portent aussi les **valeurs et pourcentages** directement sur le graphique.
+
+## Explication des variables
+
+Chaque attribut est expliqué dans l'application (page 1, section **Explication détaillée des variables**),
+dans le notebook (cellule **Dictionnaire détaillé des attributs**) et dans le tableau ci-dessous.
+
+| Variable | Définition | Lecture phishing | Rôle dans le modèle |
+|---|---|---|---|
+| `domaine_age_jours` | Âge du domaine expéditeur en jours (1–5 874 ; 10 NA imputés par la médiane) | Un domaine récent est très suspect (339 j en moyenne pour `Oui` contre 897 j pour `Non`). | **Conservée**, en `log1p` : variable la plus discriminante. |
+| `urgence_score` | Pression temporelle de 0 à 10 | L'urgence empêche la victime de vérifier (5,54 pour `Oui` contre 4,11 pour `Non`). | **Conservée** + interaction `urgence × inconnu`. |
+| `nb_liens` | Nombre de liens (0–5) | Chaque lien est une redirection potentielle (1,86 contre 1,20). | **Conservée** + interaction `liens × inconnu`. |
+| `expediteur_connu` | 0/1 : adresse déjà connue | Les malveillants viennent plus souvent d'un inconnu (25 % de `1` contre 51 %). | **Conservée**. |
+| `piece_jointe` | 0/1 : pièce jointe présente | Vecteur d'infection classique, mais courant aussi en légitime (30 % contre 21 %). | **Conservée**, importance modérée. |
+| `personnalisation_score` | Degré d'adaptation du message au destinataire (0–10) | Le *spear phishing* personnalise pour gagner la confiance (5,40 contre 4,82 ; r ≈ +0,10). | **Conservée** : un message personnalisé n'est pas forcément malveillant. |
+| `longueur_message` | Nombre de caractères (60–896) | Les malveillants sont ici légèrement plus courts (≈ 395 contre ≈ 421). | **Retirée** (bruit). |
+| `heure_envoi` | Heure d'envoi (0–23) | Un envoi nocturne peut trahir une automatisation, signal faible. | **Retirée** (importance quasi nulle). |
+| `fautes_langue` | Nombre de fautes (0–6) | L'IA écrit sans faute : 1,95 (`Oui`) contre 2,05 (`Non`), aucune séparation. | **Retirée** (bruit). |
+| `date` | Date de réception | Variable calendaire sans justification métier. | **Exclue**. |
+| `message_malveillant` | Cible `Non` / `Oui` | 374 `Non`, 146 `Oui`. | **Jamais** utilisée comme variable explicative. |
+
+**Exemple pour `personnalisation_score`**
+
+> Générique (score faible) : « Cher client, votre compte nécessite une vérification. Cliquez ici. »
+
+> Personnalisé (score plus élevé) : « Bonjour Faker, votre compte bancaire associé à votre adresse e-mail nécessite une vérification. »
+
+Le score illustre la personnalisation, pas la malveillance : les banques personnalisent aussi.
+Ce qui départage, c'est la combinaison avec l'âge du domaine, l'urgence et l'expéditeur inconnu.
+
+## Générer la présentation PowerPoint et le Markdown du notebook
+
+Les deux commandes se lancent depuis le dossier du projet, sans réseau.
+
+```bash
+# 1. Présentation PowerPoint (18 diapositives, images de artefacts/pptx/)
+python3 scripts/make_pptx.py
+# → Presentation_Projet_Phishing_IA.pptx
+
+# 2. Notebook → Markdown (texte + images des sorties)
+python3 -m nbconvert --to markdown notebook_ML_IA_confiance_numerique.ipynb
+# → notebook_ML_IA_confiance_numerique.md
+# → notebook_ML_IA_confiance_numerique_files/  (images extraites)
+```
+
+Dépendances : `python-pptx` et `pillow` pour le PPTX ; `nbconvert` pour le Markdown (voir
+`requirements.txt`). Le script PPTX lit les images déjà extraites dans `artefacts/pptx/` :
+si le notebook est réexécuté et que les figures changent, réextraire les images avant de relancer
+le script. Pour réexécuter le notebook avant conversion :
+
+```bash
+python3 -m nbconvert --to notebook --execute --inplace \
+  --ExecutePreprocessor.timeout=600 notebook_ML_IA_confiance_numerique.ipynb
+```
 
 ## Formulaire : trois cas distincts (page 3)
 
@@ -88,10 +143,35 @@ les graphiques et la matrice de corrélation sont recalculés automatiquement.
 | `dataset_phishing_ia - dataset_phishing_ia.csv` | Jeu de données synthétique (copie locale) |
 | `notebook_ML_IA_confiance_numerique.ipynb` | Notebook de référence, téléchargeable depuis l'app |
 | `Presentation_Projet_Phishing_IA.pptx` | Présentation 18 diapositives, notes orales, images issues du notebook exécuté |
+| `scripts/make_pptx.py` | Régénère le PPTX depuis les images de `artefacts/pptx/` |
+| `notebook_ML_IA_confiance_numerique.md` | Version Markdown du notebook exécuté (avec ses images) |
+| `1.ipynb` | Copie de travail du notebook, identique à la version de référence |
 | `artefacts/seuil_phishing_ia.json` | Protocole de choix du seuil sauvegardé par le notebook |
 | `artefacts/pptx/` | Images extraites du notebook pour la présentation |
 | `requirements.txt` | Dépendances |
 | `.streamlit/config.toml` | Thème clair de l'application |
+
+## Validation croisée — critère de sélection du modèle
+
+La validation croisée est calculée **sur le train seul** (416 messages, `StratifiedKFold` 5 plis,
+`random_state=42`). C'est elle qui désigne le modèle, pas le test :
+
+| Modèle | F1 macro CV (moyenne des 5 plis) |
+|---|---:|
+| **Régression logistique améliorée** | **0,814** |
+| Random Forest | 0,791 |
+| Régression logistique | 0,785 |
+| SVM RBF | 0,784 |
+| KNN (k=7) | 0,727 |
+| Dummy (classe majoritaire) | 0,418 |
+
+La CV 5-fold est appliquée à **tous** les modèles, y compris la LR améliorée. Le Dummy n'est pas un
+candidat : c'est le **plancher de référence** (0,418, aucun phishing détecté).
+
+La LR améliorée est donc **le meilleur modèle en validation croisée**, et aussi le meilleur en
+AUC/AP (0,910 / 0,810) avec le coût métier minimal (33). Le test de 104 messages ne sert qu'au
+contrôle final. Ces valeurs sont affichées dans l'app (page 3, page 5 §10, page 6 §14) et dans la
+diapositive 14 du PPTX.
 
 ## Protocole reproductible
 

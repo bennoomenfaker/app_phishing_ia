@@ -166,6 +166,187 @@ ORD_MAP = {k: i for i, k in enumerate(ORDER)}
 SEVERE = ORDER[-1]
 RANDOM_STATE = 42
 
+# Explication métier de chaque attribut : définition, échelle, exemple,
+# lecture phishing et rôle dans le modèle. Utilisée page 1.
+EXPLICATIONS_VARIABLES = {
+    "date": {
+        "titre": "Date de réception",
+        "corps": """
+**Définition.** Jour de réception du message dans le jeu de données.
+
+**Rôle.** **Exclue du modèle** : variable calendaire sans justification métier
+(elle mémoriserait la période de collecte, pas un signe de phishing).
+""",
+    },
+    "heure_envoi": {
+        "titre": "Heure d'envoi (0–23)",
+        "corps": """
+**Définition.** Heure à laquelle le message a été envoyé, de 0 à 23.
+
+**Lecture phishing.** Un envoi à 2 h du matin peut trahir une automatisation,
+mais beaucoup de messages légitimes arrivent aussi la nuit : le signal est faible.
+
+**Exemple.** 10 h = horaire de bureau banal ; 3 h = à regarder, sans conclure.
+
+**Rôle.** **Retirée du modèle final** (importance quasi nulle) ; conservée dans
+l'audit et affichée dans le formulaire pour le contexte.
+""",
+    },
+    "longueur_message": {
+        "titre": "Longueur du message (caractères)",
+        "corps": """
+**Définition.** Nombre de caractères du message (60 à 896 dans ce jeu).
+
+**Lecture phishing.** Dans ces données, les messages malveillants sont même
+légèrement **plus courts** (≈ 395 caractères contre ≈ 421) : contre-intuitif, car
+l'IA générative peut aussi produire des textes longs et soignés. La longueur ne
+distingue donc pas les classes ici.
+
+**Rôle.** **Retirée du modèle** (bruit, importance négative).
+""",
+    },
+    "nb_liens": {
+        "titre": "Nombre de liens",
+        "corps": """
+**Définition.** Nombre de liens hypertextes intégrés au message (0 à 5).
+
+**Lecture phishing.** Chaque lien est une redirection potentielle vers un site
+usurpé (faux portail bancaire, fausse page de connexion).
+
+**Exemple.** 0 lien = message informatif ; 4–5 liens = campagne qui cherche à
+faire cliquer le destinataire.
+
+**Rôle.** **Conservée** ; elle interagit avec `expediteur_connu`
+(liens × inconnu) dans le modèle amélioré.
+""",
+    },
+    "urgence_score": {
+        "titre": "Score d'urgence (0–10)",
+        "corps": """
+**Définition.** Pression temporelle ressentie dans le message : « agissez
+maintenant », « votre compte sera suspendu sous 24 h ».
+
+**Exemple.** 1 = ton neutre ; 9 = menace de suspension immédiate.
+
+**Lecture phishing.** L'urgence empêche la victime de vérifier l'information par
+un autre canal. C'est l'un des signaux les plus marqués du jeu (≈ 5,54 pour les
+messages malveillants contre ≈ 4,11 pour les messages normaux).
+
+**Rôle.** **Conservée** ; interaction `urgence × inconnu` dans le modèle.
+""",
+    },
+    "domaine_age_jours": {
+        "titre": "Âge du domaine expéditeur (jours)",
+        "corps": """
+**Définition.** Ancienneté du nom de domaine utilisé par l'expéditeur, en jours
+(1 à 5 874). Dix valeurs manquantes sont imputées par la médiane.
+
+**Lecture phishing.** Un domaine créé il y a quelques jours est un signal fort :
+les campagnes utilisent des domaines neufs, pas encore inscrits sur les listes
+noires. À l'inverse, un domaine établi depuis des années est plus rassurant.
+
+**Exemple.** 3 jours = très suspect ; 2 200 jours = domaine ancien et établi.
+
+**Rôle.** Variable la plus discriminante du jeu (≈ 339 jours en moyenne pour
+`Oui` contre ≈ 897 pour `Non`). Elle est transformée en `log1p` pour que les
+très grandes valeurs n'écrasent pas les domaines récents.
+""",
+    },
+    "fautes_langue": {
+        "titre": "Nombre de fautes de langue",
+        "corps": """
+**Définition.** Nombre de fautes détectées dans le message (0 à 6).
+
+**Lecture phishing.** C'était un signe classique du phishing « artisanal », mais
+l'IA générative écrit sans faute. Ici, la moyenne est presque identique dans les
+deux classes (≈ 1,95 pour `Oui` contre ≈ 2,05 pour `Non`) : la variable ne sépare
+plus rien.
+
+**Rôle.** **Retirée du modèle** (bruit). Elle reste utile à expliquer pourquoi
+les signaux « style maladroit » sont devenus moins fiables.
+""",
+    },
+    "expediteur_connu": {
+        "titre": "Expéditeur connu (0/1)",
+        "corps": """
+**Définition.** Indicateur binaire : `1` = adresse déjà connue de l'analyste
+ou du destinataire, `0` = adresse jamais vue.
+
+**Exemple.** Un fournisseur habituel = 1 ; une adresse inconnue = 0.
+
+**Lecture phishing.** Les messages malveillants viennent plus souvent d'un
+expéditeur inconnu (≈ 25 % de `1` côté `Oui` contre ≈ 51 % côté `Non`), mais
+l'usurpation d'un contact connu reste possible : la variable ne suffit pas.
+
+**Rôle.** **Conservée** ; interactions `urgence × inconnu` et `liens × inconnu`.
+""",
+    },
+    "piece_jointe": {
+        "titre": "Pièce jointe (0/1)",
+        "corps": """
+**Définition.** Indicateur binaire : `1` = le message contient une pièce jointe.
+
+**Lecture phishing.** Une pièce jointe est un vecteur d'infection classique
+(macro, exécutable, PDF piégé), mais beaucoup de messages professionnels
+légitimes en contiennent aussi. Signal secondaire dans ce jeu.
+
+**Rôle.** **Conservée**, avec une importance modérée.
+""",
+    },
+    "personnalisation_score": {
+        "titre": "Score de personnalisation (0–10)",
+        "corps": """
+**Définition.** Mesure **à quel point un message semble adapté personnellement à
+son destinataire**, plutôt que d'être un message générique envoyé à tout le monde.
+
+**Exemple 1 — message générique (score faible)**
+
+> Cher client, votre compte nécessite une vérification. Cliquez ici.
+
+Aucune information personnelle : le score doit rester bas.
+
+**Exemple 2 — message personnalisé (score plus élevé)**
+
+> Bonjour Faker, votre compte bancaire associé à votre adresse e-mail nécessite une vérification.
+
+Le prénom et une information qui semble concerner le destinataire sont utilisés :
+le score monte.
+
+**Comment lire le score ?** L'échelle réelle du fichier va de **0 à 10** :
+
+| Score | Interprétation |
+|---|---|
+| 0–2 | Très peu personnalisé |
+| 3–4 | Faiblement personnalisé |
+| 5–7 | Moyennement personnalisé |
+| 8–10 | Fortement personnalisé |
+
+Ces bornes sont **illustratives** : l'échelle du fichier est vérifiée dans le code,
+pas supposée.
+
+**Rapport avec le phishing.** Le *spear phishing* exploite des informations
+personnelles pour gagner la confiance. Ici, les messages malveillants sont
+légèrement plus personnalisés (≈ 5,40 contre ≈ 4,82), mais la corrélation avec la
+cible reste faible (r ≈ +0,10).
+
+**Attention :** un message très personnalisé n'est pas forcément malveillant — les
+banques et les entreprises personnalisent aussi leurs envois. La variable est
+**conservée**, mais elle ne suffit jamais seule : c'est la combinaison avec l'âge
+du domaine, l'urgence et l'expéditeur inconnu qui produit le verdict.
+""",
+    },
+    "message_malveillant": {
+        "titre": "Cible — message malveillant (Non / Oui)",
+        "corps": """
+**Définition.** Variable à prédire : `Non` = message légitime, `Oui` = message
+potentiellement malveillant (phishing).
+
+**Rôle.** Elle n'est **jamais** utilisée comme variable explicative : le modèle
+apprend à la retrouver à partir des neuf signaux précédents.
+""",
+    },
+}
+
 
 @st.cache_resource
 def load_model(model_path, meta_path):
@@ -743,13 +924,16 @@ def _seuil_fleche(ax, seuil):
 
 
 def heatmap_cm(ax, cm, titre=""):
-    """Matrice de confusion avec TP / TN / FP / FN directement dans chaque case."""
+    """Matrice de confusion avec TP / TN / FP / FN et leur pourcentage dans chaque case."""
     tn, fp, fn, tp = (int(v) for v in np.asarray(cm).ravel())
-    annot = np.array([[f"TN = {tn}", f"FP = {fp}"],
-                      [f"FN = {fn}", f"TP = {tp}"]])
+    total = max(tn + fp + fn + tp, 1)
+    annot = np.array([
+        [f"TN = {tn}\n{tn / total * 100:.1f} %", f"FP = {fp}\n{fp / total * 100:.1f} %"],
+        [f"FN = {fn}\n{fn / total * 100:.1f} %", f"TP = {tp}\n{tp / total * 100:.1f} %"],
+    ])
     sns.heatmap(cm, annot=annot, fmt="", cmap="Blues", cbar=False, ax=ax,
                 xticklabels=["Prédit : Non", "Prédit : Oui"],
-                yticklabels=["Réel : Non", "Réel : Oui"], annot_kws={"size": 10})
+                yticklabels=["Réel : Non", "Réel : Oui"], annot_kws={"size": 9})
     ax.set_xlabel("Prédit")
     ax.set_ylabel("Réel")
     if titre:
@@ -830,6 +1014,27 @@ Le résultat est une aide à la décision. La vérification finale reste humaine
     st.caption("Variables exclues du modèle : " + (", ".join(DROP_COLS) if DROP_COLS else "aucune") +
                " (variable calendaire sans justification métier).")
 
+    st.subheader("Explication détaillée des variables")
+    st.caption("Pour chaque attribut : définition, échelle, exemple, lecture phishing et rôle dans "
+               "le modèle. Les moyennes et corrélations sont recalculées à l'ouverture.")
+    for col, d in EXPLICATIONS_VARIABLES.items():
+        with st.expander(f"{d['titre']} — `{col}`"):
+            st.markdown(d["corps"])
+            if col == TARGET:
+                st.markdown(
+                    "**Dans ce jeu.** "
+                    f"`Non` = {int((propre[TARGET] == ORDER[0]).sum())} messages, "
+                    f"`Oui` = {int((propre[TARGET] == SEVERE).sum())} messages "
+                    f"sur {len(propre)} — classes déséquilibrées.")
+            elif col in propre.columns and col in meta["num"]:
+                m_non = float(propre.loc[propre[TARGET] == ORDER[0], col].mean())
+                m_oui = float(propre.loc[propre[TARGET] == SEVERE, col].mean())
+                r = float(propre[col].corr((propre[TARGET] == SEVERE).astype(int)))
+                st.markdown(
+                    "**Dans ce jeu (calculé à l'ouverture).** "
+                    f"Moyenne `Non` = {m_non:.2f} ; moyenne `Oui` = {m_oui:.2f} ; "
+                    f"corrélation avec la cible r = {r:+.2f}.")
+
     st.subheader("Logique : comment le modèle prédit-il ?")
     st.markdown(CFG["logique"])
 
@@ -872,11 +1077,14 @@ elif page.startswith("2"):
     st.subheader("Étape 2 — EDA : distribution de la cible")
     fig, ax = plt.subplots(figsize=(7, 3.5))
     counts = propre[TARGET].value_counts().reindex(ORDER).fillna(0)
+    pct = counts / counts.sum() * 100
     ax.bar(ORDER, counts.values, color=CFG["colors"][:len(ORDER)])
     ax.set_ylabel("Nombre d'observations")
-    ax.set_title("Distribution de " + TARGET)
-    for i, v in enumerate(counts.values):
-        ax.text(i, v + 1, str(int(v)), ha="center")
+    ax.set_title("Distribution de " + TARGET + f" (n = {int(counts.sum())})")
+    for i, (cls, v) in enumerate(counts.items()):
+        ax.text(i, v + counts.max() * 0.02, f"{int(v)}\n({pct[cls]:.1f} %)",
+                ha="center", va="bottom", fontsize=11, fontweight="bold")
+    ax.set_ylim(0, counts.max() * 1.18)
     st.pyplot(fig)
     plt.close(fig)
     st.caption("**Lecture** : si une classe domine, l'accuracy est trompeuse. On utilise le F1 macro "
@@ -890,10 +1098,15 @@ elif page.startswith("2"):
     fig, axes = plt.subplots(lignes, cols, figsize=(13, 3.3 * lignes))
     axes = np.atleast_1d(axes).ravel()
     for ax, col in zip(axes, num_cols):
+        lignes = []
         for cls, color in zip(ORDER, CFG["colors"][:len(ORDER)]):
-            ax.hist(propre.loc[propre[TARGET] == cls, col].dropna(), bins=12,
-                    alpha=0.45, label=cls, color=color)
+            serie = propre.loc[propre[TARGET] == cls, col].dropna()
+            ax.hist(serie, bins=12, alpha=0.45, color=color,
+                    label=f"{cls} (n = {len(serie)}, {len(serie) / len(propre):.1%})")
+            lignes.append(f"{cls} : n = {len(serie)} | moyenne = {serie.mean():.1f}")
         ax.set_title(col, fontsize=9)
+        ax.text(0.02, 0.98, "\n".join(lignes), transform=ax.transAxes, va="top",
+                fontsize=6.5, bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.85))
     for ax in axes[n:]:
         ax.axis("off")
     handles, labels = axes[0].get_legend_handles_labels()
@@ -912,6 +1125,11 @@ elif page.startswith("2"):
         moy = tmp.groupby(cat_a_montrer, observed=True)["_ord"].mean().sort_values(ascending=False)
         fig, ax = plt.subplots(figsize=(8, 3.5))
         ax.bar(moy.index.astype(str), moy.values, color="#72B7B2")
+        counts_cat = tmp[cat_a_montrer].value_counts().reindex(moy.index)
+        for i, (val, n_cat) in enumerate(zip(moy.values, counts_cat.values)):
+            ax.text(i, val + 0.02, f"{val:.2f}\n(n = {int(n_cat)}, {n_cat / len(tmp):.0%})",
+                    ha="center", va="bottom", fontsize=8)
+        ax.set_ylim(0, max(moy.max() * 1.25, 0.1))
         ax.set_ylabel("Gravité moyenne (0 → " + str(len(ORDER) - 1) + ")")
         ax.set_title("Gravité moyenne par " + cat_a_montrer)
         ax.tick_params(axis="x", rotation=20)
@@ -984,13 +1202,12 @@ elif page.startswith("2"):
                         "FN (malveillant manqué)":int(fn),"FP (fausse alerte)":int(fp)})
     cmp_cm=pd.DataFrame(cm_rows).set_index("Modèle").sort_values(["Rappel Oui","F1 macro"], ascending=False)
     st.dataframe(cmp_cm, **DF_KW)
-    cols=st.columns(len(cms))
+    cols=st.columns(min(len(cms), 3))
     for i,(name,cm) in enumerate(cms.items()):
         fig,ax=plt.subplots(figsize=(4.2,3.4))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=ORDER, yticklabels=ORDER, ax=ax, cbar=False)
+        heatmap_cm(ax, cm, f'{name}\nseuil 0.50')
         tn,fp,fn,tp=cm.ravel()
-        ax.set_xlabel('Prédit'); ax.set_ylabel('Réel'); ax.set_title(f'{name}\nFN={fn} FP={fp}', fontsize=9)
-        with cols[i%3]:
+        with cols[i % 3]:
             st.pyplot(fig); plt.close(fig)
             st.caption(f"TN={tn} FP={fp} FN={fn} TP={tp}")
     best_recall = cmp_cm['Rappel Oui'].idxmax()
@@ -1128,16 +1345,35 @@ elif page.startswith("3"):
             cm_rows.append({"Modèle":name,"Accuracy":round(accuracy_score(yte_c,yp),4),"Précision Oui":round(precision_score(yte_c,yp,pos_label=SEVERE,zero_division=0),4),"Rappel Oui":round(recall_score(yte_c,yp,pos_label=SEVERE,zero_division=0),4),"F1 macro":round(f1_score(yte_c,yp,average='macro',zero_division=0),4),"FN":int(fn),"FP":int(fp)})
         st.markdown("### Matrices de confusion par modèle (même jeu de test, seuil " + format(SEUIL, ".2f") + ")")
         st.dataframe(pd.DataFrame(cm_rows).set_index('Modèle'), **DF_KW)
-        cmc=st.columns(3)
+        cmc=st.columns(min(len(cms), 3))
         for i,(name,cm) in enumerate(cms.items()):
             tn,fp,fn,tp=cm.ravel()
             fig,ax=plt.subplots(figsize=(4.8,3.6))
             heatmap_cm(ax, cm, f"{name}\nseuil {SEUIL:.2f}")
-            with cmc[i%3]:
+            with cmc[i % 3]:
                 st.pyplot(fig); plt.close(fig)
                 st.caption(f'TN={tn} · FP={fp} · FN={fn} · TP={tp}')
         best_recall=max(cm_rows, key=lambda r:r['Rappel Oui'])
         st.info(f"**Modèle prioritaire pour la problématique (moins de FN/malveillants manqués)** : {best_recall['Modèle']} — Rappel Oui={best_recall['Rappel Oui']:.2%}, FN={best_recall['FN']}, FP={best_recall['FP']}. Un FN en phishing signifie un message malveillant non détecté.")
+
+        # -------- Validation croisée : sélection du modèle sur le train --------
+        from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+        X_cv, y_cv, _, _ = prepare_xy(propre.copy())
+        Xtr_cv, _, ytr_cv, _ = train_test_split(X_cv, y_cv, test_size=0.2, stratify=y_cv,
+                                              random_state=RANDOM_STATE)
+        cv5 = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+        cv_rows = []
+        for name, m in fitted_cmp.items():
+            sc = cross_val_score(m, Xtr_cv, ytr_cv, cv=cv5, scoring="f1_macro", n_jobs=1)
+            cv_rows.append({"Modèle": name,
+                            "F1 macro CV (moyenne)": round(float(sc.mean()), 4),
+                            "Écart-type CV": round(float(sc.std()), 4)})
+        cv_table = pd.DataFrame(cv_rows).sort_values("F1 macro CV (moyenne)", ascending=False)
+        st.markdown("### Validation croisée 5-fold (train) — sélection du modèle")
+        st.dataframe(cv_table, **DF_KW, hide_index=True)
+        st.success(f"**Meilleur F1 macro en validation croisée : {cv_table.iloc[0]['Modèle']}** — "
+                   f"{cv_table.iloc[0]['F1 macro CV (moyenne)']:.4f} sur le train. Ce score est le "
+                   "critère de sélection ; le test de contrôle reste séparé.")
 
         # -------- Matrice de confusion de la validation croisée (train) --------
         st.markdown("### Matrice de confusion — validation croisée (train, 416 messages)")
@@ -1254,7 +1490,7 @@ elif page.startswith("5"):
             "ouvert une seule fois. Sélection du modèle par **validation croisée 5-fold sur le train** "
             "→ la phase de test est bien distincte de la phase d'apprentissage.")
 
-    with st.expander("Plan imposé → où trouver chaque point dans l'application", expanded=False):
+    with st.expander("Plan de la soutenance → où trouver chaque point dans l'application", expanded=False):
         plan = pd.DataFrame([
             ("1. Contexte, objectifs, domaine", "§1 ci-dessous — page 1"),
             ("2. Solutions et travaux existants", "§2 ci-dessous"),
@@ -1531,6 +1767,17 @@ la validation croisée donne l'inverse (LR 0,785, SVM 0,784, RF 0,771). Il reste
                "(coût analyste). La colonne `@0,50` montre ce que donnerait le seuil par défaut : "
                f"le passage de 0,50 à {SEUIL:.2f} échange de la précision contre du rappel — choix assumé.")
 
+    st.markdown("**Validation croisée 5-fold sur le train — critère de sélection du modèle**")
+    _cv_rank = S["cv"].sort_values("F1 macro (CV 5-fold, train)", ascending=False)
+    st.dataframe(_cv_rank, **DF_KW, hide_index=True)
+    st.caption("La validation croisée 5-fold est appliquée à **tous** les modèles, y compris la LR "
+               "améliorée. Le Dummy n'est pas un candidat : il sert de **plancher de comparaison** "
+               "(F1 macro 0,418, aucun phishing détecté).")
+    _best_cv = _cv_rank.iloc[0]
+    st.success(f"Meilleur F1 macro en validation croisée : **{_best_cv['Modèle']}** — "
+               f"{_best_cv['F1 macro (CV 5-fold, train)']:.4f}. C'est ce score, calculé sur le train "
+               "uniquement, qui sélectionne le modèle ; le test ne sert qu'au contrôle final.")
+
     g1, g2 = st.columns([3, 2])
     with g1:
         fig, ax = plt.subplots(figsize=(8, 3.8))
@@ -1676,8 +1923,8 @@ que 104 messages ne suffisent pas à certifier une performance.
 
     with st.expander("⚠️ Note méthodologique — MAE / RMSE / R² en classification", expanded=False):
         st.markdown("""
-MAE, RMSE et R² sont des **métriques de régression**. Le notebook les calcule parce que les consignes
-VIC le demandent, mais elles ne doivent **pas** guider le choix du modèle :
+MAE, RMSE et R² sont des **métriques de régression**. Le notebook les calcule pour couvrir le
+plan de la soutenance (R², MAE, MSE), mais elles ne doivent **pas** guider le choix du modèle :
 
 - sur des décisions 0/1, `MAE = 1 − accuracy` et `RMSE = √(1 − accuracy)` : aucune information nouvelle ;
 - `R² = 1 − (1 − accuracy) / (p × (1 − p))` avec `p = part de Oui` compare la précision à une baseline
@@ -2005,7 +2252,7 @@ mesure le sur-apprentissage, attendu sur seulement {S['n_train']} lignes d'entra
 
     with st.expander("Questions probables du jury — réponses courtes"):
         st.markdown(f"""
-- **« Pourquoi R² si c'est de la classification ? »** Parce que la consigne le demande : on l'applique à la
+- **« Pourquoi R² si c'est de la classification ? »** Pour couvrir le plan de soutenance : on l'applique à la
   probabilité prédite, on l'interprète ({rf['r2']:.2f}) et on explique son plafond structurel
   (`p(1−p) = {rf['var_y']:.3f}`). La décision, elle, se juge sur la matrice de confusion.
 - **« Pourquoi un seuil de {SEUIL:.2f} et pas 0,50 ? »** À 0,50 on manque 5 phishing contre {rf['fn']} au seuil retenu. Le seuil vient du plateau de coût en validation croisée, pas d'un choix à la main.\n- - **« Comment évitez-vous la fuite de données ? »** Tous les `fit` (médiane, mode, scaler) sont faits sur le train ;
@@ -2030,8 +2277,8 @@ elif page.startswith("6"):
     n_na = int(brut.isna().sum().sum())
 
     st.header("6) Présentation du projet — support de soutenance")
-    st.caption("Version texte, lisible directement dans l'application : même contenu que le fichier "
-               "PowerPoint, sans capture d'écran. Les valeurs sont recalculées à l'ouverture.")
+    st.caption("Version complète et illustrée : même contenu que le fichier PowerPoint, avec ses "
+               "graphiques. Les valeurs sont recalculées à l'ouverture depuis le CSV et le modèle.")
 
     st.markdown(f"""
 ## 1. Page de garde
@@ -2173,6 +2420,17 @@ la place d'un prototype académique transparent.
 - ⚠️ Une différence de moyenne n'est pas un pouvoir prédictif : seule la validation croisée
   mesure la contribution réelle d'une variable.
 """)
+    _cols_eda = st.columns(3)
+    for _col, _img, _cap in zip(
+            _cols_eda,
+            ["cell31_0.png", "boxplots_compact.png", "cell33_0.png"],
+            ["Répartition de la cible — 374 Non (71,9 %) / 146 Oui (28,1 %)",
+             "Boxplots par classe — effectif, médiane et moyenne annotés",
+             "Histogrammes par classe — moyenne et effectif dans chaque graphique"]):
+        _p_img = ROOT / "artefacts" / "pptx" / _img
+        if _p_img.exists():
+            with _col:
+                st.image(str(_p_img), caption=_cap, **IMG_KW)
     st.markdown("---")
 
     st.markdown(f"""
@@ -2188,6 +2446,16 @@ la place d'un prototype académique transparent.
 - ⚠️ **Corrélation ≠ causalité** ; Pearson ne capte qu'un lien linéaire, d'où l'ajout d'une
   régression logistique multivariée et d'un SVM à noyau RBF pour les effets non linéaires.
 """)
+    _cols_corr = st.columns(2)
+    for _col, _img, _cap in zip(
+            _cols_corr,
+            ["cell39_0.png", "cell41_0.png"],
+            ["Matrice de Pearson entre variables explicatives",
+             "Association de chaque variable avec la cible Oui"]):
+        _p_img = ROOT / "artefacts" / "pptx" / _img
+        if _p_img.exists():
+            with _col:
+                st.image(str(_p_img), caption=_cap, **IMG_KW)
     st.markdown("---")
 
     st.markdown(f"""
@@ -2238,21 +2506,32 @@ récompense un modèle qui ne détecte rien (72 % de `Non`).
 """)
     st.markdown("---")
 
+    _cv_rank = S["cv"].sort_values("F1 macro (CV 5-fold, train)", ascending=False)
+    _best_cv = _cv_rank.iloc[0]
     st.markdown(f"""
 ## 14. Résultats expérimentaux
 
-**Référence du notebook — seuil par défaut 0,50, test de {S['n_test']} messages :**
+**Validation croisée 5-fold sur le train — critère de sélection du modèle :**
 
-| Modèle | Accuracy | Précision `Oui` | Rappel `Oui` | F1 macro | F1 macro en validation croisée |
-|---|---:|---:|---:|---:|---:|
-| Random Forest | 0,788 | 0,606 | 0,690 | 0,747 | 0,771 |
-| Régression logistique | 0,721 | 0,500 | 0,759 | 0,694 | 0,785 |
-| SVM RBF | 0,721 | 0,500 | 0,759 | 0,694 | 0,784 |
-| **LR améliorée ({SEUIL:.2f})** | **{rf['acc']:.3f}** | **{rf['precision']:.3f}** | **{rf['rappel']:.3f}** | **{rf['f1_macro']:.3f}** | **0,814** |
+| Modèle | F1 macro CV (moyenne des 5 plis) |
+|---|---:|
+{chr(10).join(f"| {r['Modèle']} | {r['F1 macro (CV 5-fold, train)']:.4f} |" for _, r in _cv_rank.iterrows())}
 
-- Le Random Forest gagne au seuil 0,50, mais perd en validation croisée : son avance est un
-  artefact du seuil, pas une supériorité réelle.
-- La LR améliorée gagne sur le **classement indépendant du seuil** : **AUC 0,910**, **AP 0,810**,
+**Meilleur modèle en validation croisée : {_best_cv['Modèle']} ({_best_cv['F1 macro (CV 5-fold, train)']:.4f}).**
+C'est ce score, calculé uniquement sur les {S['n_train']} messages du train, qui sert à sélectionner
+le modèle. Le test de {S['n_test']} messages n'est ouvert qu'après, comme contrôle final.
+La CV 5-fold est appliquée à **tous** les modèles, y compris la LR améliorée ; le Dummy est un
+**plancher de référence** (0,418, aucun phishing détecté), pas un candidat au déploiement.
+
+**Contrôle final sur le test, au seuil appris {SEUIL:.2f} :**
+
+| Modèle | Accuracy | Précision `Oui` | Rappel `Oui` | F1 macro | FN | FP |
+|---|---:|---:|---:|---:|---:|---:|
+{chr(10).join(f"| {r['Modèle']} | {r['Accuracy']:.3f} | {r['Précision Oui']:.3f} | {r['Rappel Oui']:.3f} | {r['F1 macro']:.3f} | {int(r['FN'])} | {int(r['FP'])} |" for _, r in S['test'].iterrows())}
+
+- Le Random Forest peut gagner ponctuellement au seuil 0,50, mais il est derrière la LR améliorée
+  en validation croisée : le classement fiable est celui de la CV, pas une seule réalisation du test.
+- La LR améliorée gagne aussi sur le **classement indépendant du seuil** : **AUC 0,910**, **AP 0,810**,
   **Brier 0,123**, devant RF (0,866 / 0,698), LR (0,832 / 0,656) et SVM (0,834 / 0,633).
 - **Modèle retenu : régression logistique améliorée.** Coût au seuil {SEUIL:.2f} :
   `5·{rf['fn']} + {rf['fp']} = {5 * rf['fn'] + rf['fp']}`.
@@ -2277,6 +2556,16 @@ récompense un modèle qui ne détecte rien (72 % de `Non`).
 - **Zéro erreur automatisée est possible** (seuils 0,07 / 0,98) mais seulement en envoyant
   **74 messages sur 104** en revue humaine : le système n'automatise alors plus que 30 cas.
 """)
+    _cols_cm = st.columns(2)
+    with _cols_cm[0]:
+        _fig_cm, _ax_cm = plt.subplots(figsize=(5.2, 4.0))
+        heatmap_cm(_ax_cm, S["cm_rf"], f"Modèle retenu — seuil {SEUIL:.2f}")
+        st.pyplot(_fig_cm)
+        plt.close(_fig_cm)
+    with _cols_cm[1]:
+        _p_img = ROOT / "artefacts" / "pptx" / "cell63_1.png"
+        if _p_img.exists():
+            st.image(str(_p_img), caption="Comparaison — Random Forest (référence historique)", **IMG_KW)
     st.markdown("---")
 
     st.markdown(f"""
@@ -2297,6 +2586,10 @@ récompense un modèle qui ne détecte rien (72 % de `Non`).
 - **Erreurs** : {rf['fp']} faux positifs (messages normaux trop « urgents » ou avec plusieurs liens)
   et {rf['fn']} faux négatif (phishing très bien imité). Les deux vivent près du seuil.
 """)
+    _p_img = ROOT / "artefacts" / "pptx" / "cell78_0.png"
+    if _p_img.exists():
+        st.image(str(_p_img), caption="Permutation importance — contribution de chaque variable au F1 macro",
+                 **IMG_KW)
     st.markdown("---")
 
     _sc_lines = []
