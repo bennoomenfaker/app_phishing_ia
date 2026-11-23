@@ -5,15 +5,18 @@
     "Non",
     "Oui"
   ],
-  "seuil": 0.3,
-  "meilleur_modele": "RandomForest",
-  "f1_macro_test": 0.7792,
+  "seuil": 0.2,
+  "meilleur_modele": "LogisticRegression_amelioree",
+  "f1_macro_test": 0.693739906906051,
+  "auc_test": 0.9098850574712644,
+  "average_precision_test": 0.8095094639936522,
   "scores_f1_macro": {
     "Dummy": 0.419,
-    "LogisticRegression": 0.694,
-    "RandomForest": 0.7792,
+    "LogisticRegression": 0.6939624556062912,
+    "RandomForest": 0.7341448569689593,
     "KNN": 0.6314,
-    "SVM_RBF": 0.6976
+    "SVM_RBF": 0.6939624556062912,
+    "LogisticRegression_amelioree": 0.693739906906051
   },
   "colonnes_exclues": [
     "date"
@@ -66,5 +69,10 @@
       "median": 5.0
     }
   },
-  "cat": {}
+  "cat": {},
+  "protocole": {
+    "feature_engineering": "log1p(domaine_age_jours) + 2 interactions, bruit retiré",
+    "seuil": "plus haut seuil avec rappel OOF >= 95 % (train), coût FN=5 / FP=1 publié",
+    "test": "évalué une seule fois, jamais utilisé pour choisir modèle ou seuil"
+  }
 }

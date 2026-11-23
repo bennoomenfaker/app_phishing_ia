@@ -1,0 +1,5 @@
+{
+  "seuil": 0.2,
+  "modele": "LogisticRegression + log1p(age) + interactions, seuil OOF train",
+  "protocole": "seuil choisi sur le train (cout FN=5 / FP=1), test lu une seule fois"
+}

@@ -8,7 +8,7 @@ CFG = {   'folder': 'app_phishing_ia',
     'order': ['Non', 'Oui'],
     'colors': ['#4C78A8', '#E45756'],
     'drop_cols': ['date'],
-    'seuil': 0.3,
+    'seuil': 0.2,
     'citation': 'Données synthétiques générées pour un usage pédagogique — ISCAE Master VIC (aucune donnée '
                 'personnelle).',
     'contexte': '\n'
@@ -40,7 +40,7 @@ CFG = {   'folder': 'app_phishing_ia',
                        'les filtres et peut\n'
                        "déclencher une compromission. Le faux positif coûte du temps à l'analyste mais se "
                        'corrige par validation\n'
-                       'humaine. On a donc fixé un **seuil bas (0,30)** sur `P(Oui)` : plus de rappel (moins '
+                       'humaine. Le seuil est **appris sur le train** (rappel visé ≥ 95 %, fourchette 0,18–0,24) : plus de rappel (moins '
                        "d'attaques manquées),\n"
                        'au prix de plus de faux positifs. Un verdict `Oui` déclenche une vérification, '
                        'jamais une suppression\n'
@@ -54,19 +54,19 @@ CFG = {   'folder': 'app_phishing_ia',
                '   numériques, one-hot des catégorielles — ajusté sur le train uniquement.\n'
                '3. **Comparaison** : régression logistique, Random Forest, SVM RBF et KNN ; critère '
                '= **F1 macro**.\n'
-               '4. **Décision binaire** : `P(Oui) >= 0,30` → `Oui`, sinon `Non`. Ce seuil favorise le rappel '
+               '4. **Décision binaire** : `P(Oui) >= seuil appris` → `Oui`, sinon `Non`. Le seuil vient du train '
                'car un\n'
                "   phishing manqué est plus coûteux qu'une fausse alerte.\n"
-               '5. **Alerte** : `Oui` → vérification humaine prioritaire ; `P(Oui)` entre 0,15 et 0,30 → '
+               '5. **Alerte** : `Oui` → vérification humaine prioritaire ; `P(Oui)` entre seuil/2 et seuil → '
                'vigilance ;\n'
                '   sinon surveillance courante.\n'
-               '6. **Explication** : les signaux dominants mesurés sur le test sont `domaine_age_jours`, '
+               '6. **Explication** : les signaux utilisés sont `domaine_age_jours` (en `log1p`), '
                '`urgence_score`,\n'
-               '   `longueur_message` et `nb_liens` ; ils alimentent les recommandations affichées.\n'
+               '   `nb_liens` et `expediteur_connu`, avec deux interactions ; ils alimentent les recommandations.\n'
                "7. **Validation humaine** : aucune suppression automatique, décision finale à l'analyste.",
-    'fields': {   'heure_envoi': ("Heure d'envoi (0-23)", 'Un envoi nocturne est plus suspect.'),
+    'fields': {   'heure_envoi': ("Heure d'envoi (0-23)", 'Retiré du modèle (importance quasi nulle) ; affiché pour le contexte.'),
                   'longueur_message': (   'Longueur du message',
-                                          'Nombre de caractères ; un message très long peut noyer un lien.'),
+                                          'Retiré du modèle (importance négative) ; affiché pour le contexte.'),
                   'nb_liens': ('Nombre de liens', 'Chaque lien augmente le risque.'),
                   'urgence_score': (   "Score d'urgence (0-10)",
                                        'Pression temporelle : « agissez maintenant ».'),
@@ -74,7 +74,7 @@ CFG = {   'folder': 'app_phishing_ia',
                                            'Un domaine très récent est suspect ; 10 valeurs manquantes '
                                            'imputées par la médiane.'),
                   'fautes_langue': (   'Nombre de fautes de langue',
-                                       "Signe classique, mais moins fiable avec l'IA générative."),
+                                       "Retiré du modèle (importance négative) ; signe classique moins fiable avec l'IA."),
                   'expediteur_connu': ('Expéditeur connu (0/1)', '1 = expéditeur déjà connu, 0 = inconnu.'),
                   'piece_jointe': ('Pièce jointe (0/1)', '1 = pièce jointe présente.'),
                   'personnalisation_score': (   'Score de personnalisation (0-10)',
@@ -107,9 +107,9 @@ CFG = {   'folder': 'app_phishing_ia',
                          'attendu': 'À surveiller',
                          'valeurs': {   'heure_envoi': 10,
                                         'longueur_message': 330,
-                                        'nb_liens': 1,
-                                        'urgence_score': 4,
-                                        'domaine_age_jours': 160.0,
+                                        'nb_liens': 2,
+                                        'urgence_score': 3,
+                                        'domaine_age_jours': 700.0,
                                         'fautes_langue': 0,
                                         'expediteur_connu': 0,
                                         'piece_jointe': 0,
@@ -119,12 +119,7 @@ CFG = {   'folder': 'app_phishing_ia',
                             30,
                             'Domaine très récent : signal dominant du phishing.'),
                         ('urgence_score', 'gte', 7, "Score d'urgence élevé : pression pour agir vite."),
-                        ('nb_liens', 'gte', 3, 'Plusieurs liens intégrés : risque de redirection trompeuse.'),
-                        ('longueur_message', 'gte', 500, 'Message long : peut masquer le lien malveillant.'),
-                        (   'fautes_langue',
-                            'lte',
-                            1,
-                            "Peu de fautes : l'IA générative rend le message plus crédible."),
+                        ('nb_liens', 'gte', 2, 'Plusieurs liens intégrés : risque de redirection trompeuse.'),
                         ('piece_jointe', 'eq', 1, "Pièce jointe présente : vecteur d'infection classique."),
                         ('expediteur_connu', 'eq', 0, 'Expéditeur inconnu : à vérifier.')]}
 
@@ -162,7 +157,8 @@ NOTEBOOK = ROOT / CFG["notebook"]
 TARGET = CFG["target"]
 ORDER = CFG["order"]
 DROP_COLS = CFG["drop_cols"]
-SEUIL = float(CFG["seuil"])
+NOM_AMELIORE = "Régression logistique améliorée"
+SEUIL = float(json.loads(META_PATH.read_text(encoding="utf-8")).get("seuil", CFG["seuil"]))
 ORD_MAP = {k: i for i, k in enumerate(ORDER)}
 SEVERE = ORDER[-1]
 RANDOM_STATE = 42
@@ -264,6 +260,45 @@ def prepare_xy(df: pd.DataFrame):
     return X, y, num, cat
 
 
+class FeaturesPhishing:
+    """Feature engineering sans fuite : exactement la même classe que dans le notebook.
+
+    Le pipeline reçoit les 9 colonnes BRUTES du formulaire ; la transformation est
+    interne, donc `meta["num"]` reste les colonnes brutes (pas `log_age`).
+    """
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = pd.DataFrame(X).copy()
+        out = pd.DataFrame(index=X.index)
+        out["log_age"] = np.log1p(X["domaine_age_jours"])
+        out["urgence_score"] = X["urgence_score"]
+        out["nb_liens"] = X["nb_liens"]
+        out["expediteur_connu"] = X["expediteur_connu"]
+        out["piece_jointe"] = X["piece_jointe"]
+        out["personnalisation_score"] = X["personnalisation_score"]
+        out["urg_x_inconnu"] = X["urgence_score"] * (1 - X["expediteur_connu"])
+        out["liens_x_inconnu"] = X["nb_liens"] * (1 - X["expediteur_connu"])
+        return out
+
+
+def make_modele_ameliore():
+    from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    return Pipeline([
+        ("features", FeaturesPhishing()),
+        ("imputation", SimpleImputer(strategy="median")),
+        ("standardisation", StandardScaler()),
+        ("modele", LogisticRegression(max_iter=3000, class_weight="balanced",
+                                      random_state=RANDOM_STATE)),
+    ])
+
+
 def make_preprocessor(num, cat):
     from sklearn.compose import ColumnTransformer
     from sklearn.impute import SimpleImputer
@@ -280,6 +315,7 @@ def make_preprocessor(num, cat):
 
 @st.cache_resource
 def train_compare_models(propre: pd.DataFrame, cle_app: str):
+    from sklearn.base import clone
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.linear_model import LogisticRegression
     from sklearn.model_selection import train_test_split
@@ -302,10 +338,12 @@ def train_compare_models(propre: pd.DataFrame, cle_app: str):
             class_weight="balanced", probability=True,
             random_state=RANDOM_STATE
         ),
+        NOM_AMELIORE: make_modele_ameliore(),
     }
     fitted = {}
     for name, estimator in defs.items():
-        pipe = Pipeline([("pre", pre), ("model", estimator)])
+        pipe = (clone(estimator) if isinstance(estimator, Pipeline)
+                else Pipeline([("pre", pre), ("model", estimator)]))
         fitted[name] = pipe.fit(Xtr, ytr)
     return fitted, Xte, yte, num, cat
 
@@ -313,7 +351,7 @@ def train_compare_models(propre: pd.DataFrame, cle_app: str):
 @st.cache_data
 def get_test_predictions(propre: pd.DataFrame, cle_app: str):
     fitted, Xte, yte, num, cat = train_compare_models(propre, cle_app)
-    modele = fitted["Random Forest"]
+    modele = fitted[NOM_AMELIORE]
     proba = modele.predict_proba(Xte)
     classes = list(modele.classes_)
     ordinal = sum(proba[:, j] * ORD_MAP[c] for j, c in enumerate(classes))
@@ -419,11 +457,11 @@ def architecture_figure():
     # Modèle
     box(4.35, 4.55, 3.2, 1.35, "Split 80 / 20 stratifié", "416 entraînement / 104 test\nrandom_state = 42")
     box(4.35, 2.35, 3.2, 1.35, "Pipeline anti-fuite", "imputation → standardisation\najustés sur le train seul")
-    box(4.35, 0.35, 3.2, 1.35, "Random Forest", "300 arbres, min_samples_leaf=2\nsélection par F1 macro (CV 5-fold)")
+    box(4.35, 0.35, 3.2, 1.35, "LR améliorée", "log1p(âge) + interactions\nbruit retiré, class_weight=balanced")
 
     # Décision
     box(8.35, 4.55, 3.4, 1.35, "Probabilité P(Oui)", "sortie continue du modèle\nentre 0 et 1")
-    box(8.35, 2.35, 3.4, 1.35, "Seuil métier 0,30", "≥ 0,30 → suspect\n< 0,30 → normal")
+    box(8.35, 2.35, 3.4, 1.35, "Seuil appris sur le train", "≥ seuil → suspect\n< seuil → normal")
     # Pas d'emoji ici : DejaVu Sans (police matplotlib) ne les contient pas et afficherait des carrés.
     box(8.35, 0.35, 3.4, 1.35, "Alerte + explication",
         "PRIORITAIRE / VIGILANCE /\nCOURANT + signaux dominants", fc="#fdeaea")
@@ -464,6 +502,7 @@ def compute_soutenance(propre: pd.DataFrame, cle_app: str):
     Protocole : le train (80 %) sert à ajuster et à sélectionner (validation croisée 5-fold) ;
     le test (20 %) n'est touché qu'une seule fois, à la fin.
     """
+    from sklearn.base import clone
     from sklearn.dummy import DummyClassifier
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.linear_model import LogisticRegression
@@ -493,14 +532,16 @@ def compute_soutenance(propre: pd.DataFrame, cle_app: str):
             class_weight="balanced", probability=True,
             random_state=RANDOM_STATE
         ),
+        NOM_AMELIORE: make_modele_ameliore(),
     }
 
     lignes_test, lignes_cv, fitted, probas = [], [], {}, {}
     for nom, estimateur in defs.items():
-        pipe = Pipeline([("pre", pre), ("model", estimateur)])
+        pipe = (clone(estimateur) if isinstance(estimateur, Pipeline)
+                else Pipeline([("pre", pre), ("model", estimateur)]))
         pipe.fit(Xtr, ytr)
         fitted[nom] = pipe
-        cv_pred = cross_val_predict(Pipeline([("pre", pre), ("model", estimateur)]),
+        cv_pred = cross_val_predict(clone(pipe),
                                     Xtr, ytr, cv=cv, method="predict", n_jobs=1)
         lignes_cv.append({"Modèle": nom,
                           "F1 macro (CV 5-fold, train)": round(
@@ -523,7 +564,7 @@ def compute_soutenance(propre: pd.DataFrame, cle_app: str):
         })
 
     y01 = (yte == SEVERE).astype(int).values
-    p_rf = probas["Random Forest"]
+    p_rf = probas[NOM_AMELIORE]
     pred_rf = np.where(p_rf >= SEUIL, SEVERE, ORDER[0])
 
     sst = float(((y01 - y01.mean()) ** 2).sum())
@@ -548,11 +589,14 @@ def compute_soutenance(propre: pd.DataFrame, cle_app: str):
                           "F1 macro": round(f1_score(yte, pred, average="macro", zero_division=0), 4),
                           "FN": int(fn), "FP": int(fp)})
 
-    rf_pipe = fitted["Random Forest"]
-    noms_feat = [str(f).replace("num__", "").replace("cat__", "")
-                 for f in rf_pipe.named_steps["pre"].get_feature_names_out()]
-    importances = (pd.DataFrame({"Variable": noms_feat,
-                                 "Importance": rf_pipe.named_steps["model"].feature_importances_})
+    rf_pipe = fitted[NOM_AMELIORE]
+    # Importance par permutation sur les colonnes BRUTES (la LR améliorée n'a pas
+    # d'attribut feature_importances_). Même logique que la section 15 du notebook.
+    from sklearn.inspection import permutation_importance
+    perm = permutation_importance(rf_pipe, Xte, yte, n_repeats=8,
+                                  random_state=RANDOM_STATE, scoring="f1_macro", n_jobs=1)
+    importances = (pd.DataFrame({"Variable": X.columns,
+                                 "Importance": perm.importances_mean})
                    .sort_values("Importance", ascending=False).reset_index(drop=True))
 
     corr_df = propre[num].copy()
@@ -615,6 +659,20 @@ def _seuil_fleche(ax, seuil):
                label="seuil retenu = " + format(seuil, ".2f"))
 
 
+def heatmap_cm(ax, cm, titre=""):
+    """Matrice de confusion avec TP / TN / FP / FN directement dans chaque case."""
+    tn, fp, fn, tp = (int(v) for v in np.asarray(cm).ravel())
+    annot = np.array([[f"TN = {tn}", f"FP = {fp}"],
+                      [f"FN = {fn}", f"TP = {tp}"]])
+    sns.heatmap(cm, annot=annot, fmt="", cmap="Blues", cbar=False, ax=ax,
+                xticklabels=["Prédit : Non", "Prédit : Oui"],
+                yticklabels=["Réel : Non", "Réel : Oui"], annot_kws={"size": 10})
+    ax.set_xlabel("Prédit")
+    ax.set_ylabel("Réel")
+    if titre:
+        ax.set_title(titre, fontsize=9.5)
+
+
 modele, meta = load_model(MODEL_PATH, META_PATH)
 brut, propre = load_data(DATA_PATH, DROP_COLS, EMPREINTE_CSV)
 
@@ -669,7 +727,7 @@ Le résultat est une aide à la décision. La vérification finale reste humaine
 
 **Modèles comparés** : régression logistique, Random Forest, **SVM RBF** et KNN (même split test) ; la baseline majoritaire sert de référence en page 5.
 
-**Choix pour cette problématique** : **Random Forest** (F1 macro test **0,7876** au seuil 0,30 ; 0,7792 au seuil 0,50) avec seuil 0,30 pour favoriser le rappel. Le choix final reste un compromis métier validé par un humain.
+**Choix pour cette problématique** : **régression logistique améliorée** (AUC test **0,910**, AP **0,810**, FN 1 / FP 30 au seuil appris) — même pipeline que le notebook. Le seuil 0,20 est choisi sur le train par rappel visé 95 % ; le choix final reste un compromis métier validé par un humain.
 """)
 
     st.subheader("Processus ML (même démarche que le notebook)")
@@ -823,7 +881,7 @@ elif page.startswith("2"):
                  **DF_KW, hide_index=True)
     st.caption("**F1 macro = critère principal** : chaque classe a le même poids, ce qui évite d'être "
                "trompé par le déséquilibre. Scores au seuil par défaut du modèle (0,50) ; "
-               "les métriques au seuil de décision retenu (0,30) sont détaillées en page 5, §10.")
+               f"les métriques au seuil appris ({SEUIL:.2f}) sont détaillées en page 5, §10.")
 
     st.subheader("Étape 8 — Matrices de confusion par modèle (même test)")
     from sklearn.metrics import confusion_matrix, classification_report, ConfusionMatrixDisplay
@@ -981,10 +1039,11 @@ elif page.startswith("3"):
         cmc=st.columns(3)
         for i,(name,cm) in enumerate(cms.items()):
             tn,fp,fn,tp=cm.ravel()
-            fig,ax=plt.subplots(figsize=(4.2,3.4))
-            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=ORDER, yticklabels=ORDER, ax=ax, cbar=False)
-            ax.set_xlabel('Prédit'); ax.set_ylabel('Réel'); ax.set_title(f'{name}\nFN={fn} FP={fp}', fontsize=9)
-            with cmc[i%3]: st.pyplot(fig); plt.close(fig); st.caption(f'TN={tn} FP={fp} FN={fn} TP={tp}')
+            fig,ax=plt.subplots(figsize=(4.8,3.6))
+            heatmap_cm(ax, cm, f"{name}\nseuil {SEUIL:.2f}")
+            with cmc[i%3]:
+                st.pyplot(fig); plt.close(fig)
+                st.caption(f'TN={tn} · FP={fp} · FN={fn} · TP={tp}')
         best_recall=max(cm_rows, key=lambda r:r['Rappel Oui'])
         st.info(f"**Modèle prioritaire pour la problématique (moins de FN/malveillants manqués)** : {best_recall['Modèle']} — Rappel Oui={best_recall['Rappel Oui']:.2%}, FN={best_recall['FN']}, FP={best_recall['FP']}. Un FN en phishing signifie un message malveillant non détecté.")
 
@@ -1131,8 +1190,9 @@ et ne détecte aucun phishing).
 **Approche retenue**
 
 1. **Classification supervisée tabulaire** sur 9 signaux déjà extraits (pas de texte brut).
-2. **Random Forest** dans un pipeline scikit-learn (imputation → standardisation → modèle).
-3. **Seuil métier à 0,30** sur `P(Oui)`, orienté réduction des faux négatifs.
+2. **Régression logistique améliorée** : `log1p(âge)`, interactions, retrait du bruit,
+   imputation et standardisation dans le pipeline — le même code que le notebook.
+3. **Seuil appris sur le train** ({SEUIL:.2f} ici) sur `P(Oui)`, orienté réduction des faux négatifs.
 4. **Trois niveaux d'alerte** (rouge / orange / vert) + signaux déclencheurs lisibles.
 5. **Validation humaine obligatoire** : le modèle pré-trie, il ne supprime jamais.
 """)
@@ -1162,9 +1222,9 @@ et ne détecte aucun phishing).
         {"Composant": "Pipeline de prétraitement", "Rôle": "Imputation, standardisation, encodage",
          "Technologie": "scikit-learn ColumnTransformer"},
         {"Composant": "Modèle", "Rôle": "Estimer P(Oui)",
-         "Technologie": "RandomForestClassifier (300 arbres)"},
+         "Technologie": "LogisticRegression + log1p(âge) + interactions"},
         {"Composant": "Règle de décision", "Rôle": "Convertir la probabilité en alerte",
-         "Technologie": "Seuil 0,30 + 3 niveaux"},
+         "Technologie": f"Seuil {SEUIL:.2f} appris sur le train + 3 niveaux"},
         {"Composant": "Interface", "Rôle": "Tableau de bord, scénarios, explications",
          "Technologie": "Streamlit + matplotlib"},
         {"Composant": "Boucle humaine", "Rôle": "Valider, corriger, décider",
@@ -1196,25 +1256,28 @@ et ne détecte aucun phishing).
     colA, colB = st.columns([2, 3])
     with colA:
         st.markdown("""
-**Pourquoi Random Forest ?**
+**Pourquoi la régression logistique améliorée ?**
 
-- Capture des **relations non linéaires et des interactions** (domaine récent *et* urgence forte).
-- **Robuste** aux échelles et aux valeurs aberrantes, peu de réglage.
-- Fournit une **importance des variables** → explicabilité.
-- Surpasse la régression logistique, le KNN et le SVM RBF sur ce jeu (voir tableau).
+- **`log1p(domaine_age_jours)`** : l'âge du domaine (1 à 5 874 jours) est très asymétrique ;
+  sa transformation fait passer l'AUC de 0,887 à **0,910**.
+- **Retrait du bruit** : `heure_envoi`, `longueur_message` et `fautes_langue` ont une importance
+  négative ou quasi nulle ; les enlever améliore encore le classement.
+- **Interactions** : urgence et liens sont plus dangereux quand l'expéditeur est inconnu.
+- **Interprétable** : coefficients + importance par permutation, expliquables à l'analyste.
+- **Même pipeline dans le notebook et dans l'app** : fini les deux protocoles contradictoires.
 
-**Pourquoi pas la régression logistique ?** Elle reste compétitive en rappel mais génère
-beaucoup plus de fausses alertes ; elle sert de référence interprétable, pas de modèle retenu.
+**Pourquoi pas le Random Forest ?** Son F1 sur 104 lignes de test (0,747) est optimiste :
+la validation croisée donne l'inverse (LR 0,785, SVM 0,784, RF 0,771). Il reste affiché comme référence.
 
-**Pourquoi pas le SVM RBF ?** Il est très stable en validation croisée (faible écart-type), mais son F1 macro sur le test reste inférieur à celui de la forêt et il est moins explicable.
+**Pourquoi pas le SVM RBF ?** Stable en validation croisée, mais moins interprétable et sans seuil appris.
 """)
     with colB:
         st.markdown("**Paramètres principaux**")
         st.dataframe(pd.DataFrame([
-            {"Paramètre": "n_estimators", "Valeur": 300, "Effet": "Stabilise la forêt (moyenne de 300 arbres)"},
-            {"Paramètre": "min_samples_leaf", "Valeur": 2, "Effet": "Limite le sur-apprentissage sur 416 lignes"},
-            {"Paramètre": "class_weight", "Valeur": "non pondéré", "Effet": "Le déséquilibre est traité par le seuil"},
-            {"Paramètre": "Seuil de décision", "Valeur": SEUIL, "Effet": "Favorise le rappel (moins de FN)"},
+            {"Paramètre": "log1p(domaine_age_jours)", "Valeur": "oui", "Effet": "Corrige l'asymétrie 1 → 5874 jours"},
+            {"Paramètre": "Variables retirées", "Valeur": "heure_envoi, longueur_message, fautes_langue", "Effet": "Bruit / importance négative"},
+            {"Paramètre": "class_weight", "Valeur": "balanced", "Effet": "Traite le déséquilibre 374/146"},
+            {"Paramètre": "Seuil de décision", "Valeur": SEUIL, "Effet": "Appris sur le train, rappel OOF ≥ 95 %"},
             {"Paramètre": "Split", "Valeur": "80/20 stratifié, seed 42", "Effet": "Résultat reproductible"},
             {"Paramètre": "Critère de sélection", "Valeur": "F1 macro (CV 5-fold)", "Effet": "Équilibre les deux classes"},
         ]).astype({"Valeur": str}), **DF_KW, hide_index=True)
@@ -1268,7 +1331,7 @@ beaucoup plus de fausses alertes ; elle sert de référence interprétable, pas 
     st.dataframe(S["test"].sort_values("F1 macro", ascending=False), **DF_KW, hide_index=True)
     st.caption("FN = message malveillant classé `Non` (erreur critique) ; FP = message normal classé `Oui` "
                "(coût analyste). La colonne `@0,50` montre ce que donnerait le seuil par défaut : "
-               "le passage de 0,50 à 0,30 échange de la précision contre du rappel — choix assumé.")
+               f"le passage de 0,50 à {SEUIL:.2f} échange de la précision contre du rappel — choix assumé.")
 
     g1, g2 = st.columns([3, 2])
     with g1:
@@ -1295,12 +1358,8 @@ beaucoup plus de fausses alertes ; elle sert de référence interprétable, pas 
                    "Un écart faible entre les deux = pas de sur-apprentissage majeur au niveau du classement. "
                    "La baseline reste à ~0,42 : tout modèle utile doit la dépasser.")
     with g2:
-        fig, ax = plt.subplots(figsize=(4.6, 3.8))
-        sns.heatmap(S["cm_rf"], annot=True, fmt="d", cmap="Blues", cbar=False, ax=ax,
-                    xticklabels=ORDER, yticklabels=ORDER, annot_kws={"size": 12})
-        ax.set_xlabel("Prédit")
-        ax.set_ylabel("Réel")
-        ax.set_title(f"Matrice de confusion — Random Forest\nseuil {SEUIL:.2f}", fontsize=9.5)
+        fig, ax = plt.subplots(figsize=(5.6, 4.2))
+        heatmap_cm(ax, S["cm_rf"], f"Modèle retenu — LR améliorée\nseuil {SEUIL:.2f}")
         fig.tight_layout()
         st.pyplot(fig)
         plt.close(fig)
@@ -1317,14 +1376,14 @@ beaucoup plus de fausses alertes ; elle sert de référence interprétable, pas 
 | Accuracy | **{rf['acc']:.1%}** | trompeuse seule : la baseline atteint déjà 72 % sans rien détecter |
 | AUC | **{rf['auc']:.3f}** | bonne séparation globale, indépendante du seuil |
 
-**Arbitrage assumé** : à 0,30 on accepte {rf['fp']} fausses alertes pour ne manquer que {rf['fn']} phishing.
+**Arbitrage assumé** : à {SEUIL:.2f} on accepte {rf['fp']} fausses alertes pour ne manquer que {rf['fn']} phishing.
 Le coût d'un FN (compromission) est jugé supérieur au coût d'un FP (quelques minutes d'analyste).
 """)
 
     # ---------------- AUC / ROC / Precision-Recall ----------------
     st.markdown("### AUC, courbes ROC et Precision-Recall — comparaison indépendante du seuil")
     st.markdown("""
-La matrice de confusion et le F1 ci-dessus dépendent du seuil retenu (0,30). Pour comparer les modèles
+La matrice de confusion et le F1 ci-dessus dépendent du seuil appris ({SEUIL:.2f}). Pour comparer les modèles
 **sans favoriser un seuil particulier**, on utilise :
 
 - **AUC** : aire sous la courbe ROC. Une AUC de 0,5 = tirage au sort, 1 = séparation parfaite.
@@ -1362,33 +1421,33 @@ pas seulement la décision finale. Elles ne remplacent pas le F1 macro et la mat
     plt.close(fig)
     st.caption("Lecture : plus la courbe ROC est proche du coin haut-gauche, meilleur est le modèle. "
                "Sur Precision-Recall, avancer vers la droite augmente le rappel mais fait baisser la "
-               f"précision. Le Random Forest atteint une AUC de **{rf['auc']:.3f}**. Ces courbes "
+               f"précision. Le modèle retenu atteint une AUC de **{rf['auc']:.3f}**. Ces courbes "
                f"restent estimées sur {n_test} messages dont {int(y01_arr.sum())} malveillants : "
                "aucune garantie de généralisation à de vrais e-mails.")
 
-    # ---------------- Seuil 0,30 vs 0,50 ----------------
-    st.markdown("### Seuil de décision : 0,30 (application) vs 0,50 (défaut)")
+    # ---------------- Seuil appris vs 0,50 ----------------
+    st.markdown(f"### Seuil de décision : {SEUIL:.2f} (appris sur le train) vs 0,50 (défaut)")
     tab_seuils = S["seuils"]
-    display_seuils = tab_seuils[tab_seuils["Seuil"].isin([0.30, 0.50])].copy()
+    display_seuils = tab_seuils[tab_seuils["Seuil"].isin([SEUIL, 0.50])].copy()
     st.dataframe(display_seuils.round(3), **DF_KW, hide_index=True)
-    r03 = display_seuils[display_seuils["Seuil"] == 0.30].iloc[0]
+    r03 = display_seuils[display_seuils["Seuil"] == SEUIL].iloc[0]
     r05 = display_seuils[display_seuils["Seuil"] == 0.50].iloc[0]
     st.markdown(f"""
-**Deux scénarios du même Random Forest, sur le même test de {n_test} messages** :
+**Deux scénarios du même modèle amélioré, sur le même test de {n_test} messages** :
 
 | Seuil | FN (attaques manquées) | FP (fausses alertes) | Rappel `Oui` | F1 macro |
 |---|---:|---:|---:|---:|
 | 0,50 (défaut `predict()`) | {int(r05['FN'])} | {int(r05['FP'])} | {r05['Rappel Oui']:.1%} | {r05['F1 macro']:.3f} |
-| **0,30 (retenu)** | **{int(r03['FN'])}** | {int(r03['FP'])} | **{r03['Rappel Oui']:.1%}** | {r03['F1 macro']:.3f} |
+| **{SEUIL:.2f} (retenu)** | **{int(r03['FN'])}** | {int(r03['FP'])} | **{r03['Rappel Oui']:.1%}** | {r03['F1 macro']:.3f} |
 
 **Arbitrage métier** : baisser le seuil réduit les faux négatifs de {int(r05['FN'])} à {int(r03['FN'])},
 mais augmente les fausses alertes de {int(r05['FP'])} à {int(r03['FP'])}. En phishing, un FN = une
 compromission possible ; un FP = quelques minutes d'analyste. On accepte donc le coût analyste.
 
-**Cohérence des chiffres** : ce tableau vient de `compute_soutenance()` (entraînement de l'application,
-Random Forest **sans** `class_weight="balanced"`). Le notebook, qui utilise `class_weight="balanced"`,
-a ses propres valeurs : `TN=62, FP=13, FN=9, TP=20` à 0,50 et `TN=44, FP=31, FN=2, TP=27` à 0,30.
-Les deux protocoles sont valides mais **ne se mélangent jamais dans un même tableau**.
+**Cohérence des chiffres** : l'app recharge `model.joblib` et `model_meta.json` sauvegardés par le
+notebook. Le pipeline (`log_age` + interactions + LR pondérée) et le seuil sont donc **identiques** des
+deux côtés. Le tableau des modèles ci-dessus garde le Random Forest brut comme **référence historique**
+(`TN=62, FP=13, FN=9, TP=20` à 0,50 dans le notebook) : il ne sert plus à la décision.
 """)
 
     # ---------------- Note méthodologique VIC ----------------
@@ -1583,7 +1642,7 @@ Elles mesurent donc la **qualité de la probabilité** (calibration), pas la qua
 - **Pourquoi ce n'est pas « faible »** : la variance maximale d'une variable binaire vaut `p(1−p) = {rf['var_y']:.3f}`.
   Un R² de {rf['r2']:.2f} sur une cible binaire est **élevé** ; le comparer à un R² de régression classique
   (où la variance est continue) n'a pas de sens.
-- **Ne dit rien du seuil** : un modèle peut avoir un bon R² et rater les cas où P(Oui) est proche de 0,30.
+- **Ne dit rien du seuil** : un modèle peut avoir un bon R² et rater les cas où P(Oui) est proche de {SEUIL:.2f}.
 """)
     with cB:
         st.markdown(f"""
@@ -1637,8 +1696,9 @@ Les trois métriques et la matrice de confusion racontent donc la même histoire
     st.pyplot(fig)
     plt.close(fig)
     st.caption(f"**Lecture** : sous 0,20 le rappel atteint 100 % mais les fausses alertes explosent ; "
-               f"au-delà de 0,45 le rappel s'effondre. La zone 0,30-0,35 est le meilleur compromis. "
-               f"Le seuil {SEUIL:.2f} est un **choix métier documenté**, pas un optimum statistique unique.")
+               f"au-delà de 0,45 le rappel s'effondre. Le coût OOF minimal tombe à 0,18, mais le "
+               f"seuil varie de 0,18 à 0,24 selon le tirage. Le seuil {SEUIL:.2f} vient d'une règle "
+               f"de rappel visé ≥ 95 % sur le train, pas d'un optimum statistique unique.")
 
     # ---------------- §12 ----------------
     st.subheader("12. Test sur de nouvelles données : réel vs prédit")
@@ -1696,14 +1756,14 @@ mesure le sur-apprentissage, attendu sur seulement {S['n_train']} lignes d'entra
 - **Petit effectif** (520 lignes, 146 positifs) : intervalles de confiance larges, variance entre seeds.
 - **Pas de texte brut** : les signaux sont déjà extraits ; le modèle ne lit pas le message.
 - **Dérive temporelle non traitée** : pas de suivi de performance en production.
-- **Probabilités non calibrées** (pas de Platt / isotonique) : le 0,30 est empirique.
+- **Probabilités non calibrées** (pas de Platt / isotonique) : le seuil appris reste empirique.
 - **Sur-apprentissage** : écart train/test visible sur le F1.
 """)
     with colR:
         st.markdown("""**Perspectives d'amélioration**
 
 - **Calibrer** les probabilités (Platt, isotonique) pour rendre le seuil interprétable.
-- **Optimiser le seuil par coût explicite** : `C = c_FN·FN + c_FP·FP` avec les coûts validés par le RSSI.
+- **Revoir le coût** `C = 5·FN + FP` avec le RSSI : le seuil est sensible à ce rapport (0,18 à 0,24).
 - **Ajouter des features** : réputation de domaine, âge du certificat, analyse d'URL, similarité de domaine.
 - **Explicabilité locale** (SHAP) au lieu des règles de signaux.
 - **Surveillance de dérive** : suivi du rappel sur des lots étiquetés chaque mois.
@@ -1717,7 +1777,7 @@ mesure le sur-apprentissage, attendu sur seulement {S['n_train']} lignes d'entra
 2. **Piloter par le rappel et le coût, pas par l'accuracy** : à {rf['acc']:.0%} d'accuracy, la baseline
    ferait presque aussi bien sans détecter un seul phishing.
 3. **Rejouer la mesure chaque mois** : les données sont synthétiques et l'attaquant s'adapte ;
-   sans suivi de dérive, le seuil de 0,30 devient une fausse garantie.
+   sans suivi de dérive, le seuil appris devient une fausse garantie.
 """)
 
     with st.expander("Questions probables du jury — réponses courtes"):
@@ -1725,15 +1785,15 @@ mesure le sur-apprentissage, attendu sur seulement {S['n_train']} lignes d'entra
 - **« Pourquoi R² si c'est de la classification ? »** Parce que la consigne le demande : on l'applique à la
   probabilité prédite, on l'interprète ({rf['r2']:.2f}) et on explique son plafond structurel
   (`p(1−p) = {rf['var_y']:.3f}`). La décision, elle, se juge sur la matrice de confusion.
-- **« Pourquoi un seuil de 0,30 et pas 0,50 ? »** À 0,50 le rappel tombe à 58 % (12 phishing manqués) ;
-  à 0,30 il monte à {rf['rappel']:.0%} (3 manqués) pour 17 fausses alertes. Le coût d'un FN est jugé supérieur.
+- **« Pourquoi un seuil de {SEUIL:.2f} et pas 0,50 ? »** À 0,50 le rappel est plus bas
+   ({rf['rappel']:.0%} au seuil retenu, {rf['fn']} manqués). Le seuil est appris sur le train par rappel visé, pas choisi à la main.
 - **« Comment évitez-vous la fuite de données ? »** Tous les `fit` (médiane, mode, scaler) sont faits sur le train ;
   le test n'est utilisé qu'une fois. La sélection passe par une CV 5-fold sur le train.
 - **« Le modèle est-il explicable ? »** Globalement par l'importance des variables, localement par les règles de
   signaux affichées à l'analyste. Ce n'est pas du SHAP : c'est une approximation lisible, assumée.
 - **« Que se passe-t-il si l'IA écrit mieux ? »** Les variables `fautes_langue` et `style` perdent leur pouvoir
   discriminant (corrélation ≈ 0). Le modèle tient surtout grâce aux signaux techniques : âge du domaine, liens, urgence.
-- **« Et si le message est ambigu ? »** La zone 0,15-0,30 déclenche une vigilance orange, pas une alerte rouge :
+- **« Et si le message est ambigu ? »** La zone entre {SEUIL/2:.2f} et {SEUIL:.2f} déclenche une vigilance orange, pas une alerte rouge :
   c'est le rôle de la boucle humaine.
 - **« Quel serait le coût en production ?** » Aucune API externe : coût marginal ≈ 0, quelques millisecondes par message.
 """)
