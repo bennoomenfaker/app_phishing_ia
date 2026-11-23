@@ -34,9 +34,9 @@
   },
   "validation": {
     "cv": "StratifiedKFold 5x5 répété sur le train",
-    "auc_oof_moyen": 0.9092073292742189,
-    "ap_oof_moyen": 0.811898684570908,
-    "plateau_cout_oof": "0,20-0,22",
+    "auc_cv_moyen": 0.9092073292742189,
+    "ap_cv_moyen": 0.811898684570908,
+    "plateau_cout_cv": "0.20-0.22",
     "bootstrap_ic95_rappel": [
       0.886,
       1.0
@@ -104,8 +104,8 @@
   "cat": {},
   "protocole": {
     "feature_engineering": "log1p(domaine_age_jours) + 2 interactions, bruit retiré",
-    "seuil": "plateau de coût OOF 5·FN + FP en CV répétée 5×5 (0,20-0,22), médiane 0,21",
-    "triage": "Normal < 0,20 ; revue humaine 0,20-0,88 ; Alerte >= 0,88",
+    "seuil": "plateau de coût en validation croisée 5·FN + FP en CV répétée 5×5 (0.20-0.22), médiane 0.21",
+    "triage": "Normal < 0.20 ; revue humaine 0.20-0.88 ; Alerte >= 0.88",
     "test": "évalué une seule fois, jamais utilisé pour choisir modèle ou seuil"
   }
 }

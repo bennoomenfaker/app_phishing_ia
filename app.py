@@ -361,6 +361,7 @@ def train_compare_models(propre: pd.DataFrame, cle_app: str):
         "Régression logistique": LogisticRegression(max_iter=2000, class_weight="balanced",
                                                     random_state=RANDOM_STATE),
         "Random Forest": RandomForestClassifier(n_estimators=300, min_samples_leaf=2,
+                                                class_weight="balanced",
                                                 random_state=RANDOM_STATE, n_jobs=-1),
         "KNN": KNeighborsClassifier(n_neighbors=7),
         "SVM RBF": SVC(
@@ -380,7 +381,7 @@ def train_compare_models(propre: pd.DataFrame, cle_app: str):
 
 @st.cache_data
 def get_cv_confusion(propre: pd.DataFrame, cle_app: str):
-    """Matrice de confusion OOF (validation croisée 5×5 répétée) sur le train seul."""
+    """Matrice de confusion de la validation croisée (5×5 répétée) sur le train seul."""
     from sklearn.metrics import confusion_matrix
     from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
 
@@ -595,6 +596,7 @@ def compute_soutenance(propre: pd.DataFrame, cle_app: str):
         "Régression logistique": LogisticRegression(max_iter=2000, class_weight="balanced",
                                                     random_state=RANDOM_STATE),
         "Random Forest": RandomForestClassifier(n_estimators=300, min_samples_leaf=2,
+                                                class_weight="balanced",
                                                 random_state=RANDOM_STATE, n_jobs=-1),
         "KNN (k=7)": KNeighborsClassifier(n_neighbors=7),
         "SVM RBF": SVC(
@@ -767,6 +769,7 @@ page = st.sidebar.radio("Navigation", [
     "3. Prédiction / Verdict",
     "4. Notebook",
     "5. Soutenance (12 points)",
+    "6. Présentation (soutenance)",
 ])
 st.sidebar.markdown("---")
 st.sidebar.info("Outil pédagogique. Décision humaine obligatoire — aucun blocage automatique.")
@@ -1136,15 +1139,15 @@ elif page.startswith("3"):
         best_recall=max(cm_rows, key=lambda r:r['Rappel Oui'])
         st.info(f"**Modèle prioritaire pour la problématique (moins de FN/malveillants manqués)** : {best_recall['Modèle']} — Rappel Oui={best_recall['Rappel Oui']:.2%}, FN={best_recall['FN']}, FP={best_recall['FP']}. Un FN en phishing signifie un message malveillant non détecté.")
 
-        # -------- Matrice de confusion de la validation croisée (OOF, train) --------
-        st.markdown("### Matrice de confusion — validation croisée (OOF, train 416)")
-        ytr01, p_oof, cm_cv = get_cv_confusion(propre, CFG["folder"])
+        # -------- Matrice de confusion de la validation croisée (train) --------
+        st.markdown("### Matrice de confusion — validation croisée (train, 416 messages)")
+        ytr01, p_cv, cm_cv = get_cv_confusion(propre, CFG["folder"])
         tn_cv, fp_cv, fn_cv, tp_cv = cm_cv
         cvc1, cvc2 = st.columns([2, 3])
         with cvc1:
             fig, ax = plt.subplots(figsize=(4.8, 3.6))
             heatmap_cm(ax, np.array([[tn_cv, fp_cv], [fn_cv, tp_cv]]),
-                       "Validation croisée 5×5 répétée\nOOF — seuil " + format(SEUIL, ".2f"))
+                       "Validation croisée 5×5 répétée\nseuil " + format(SEUIL, ".2f"))
             st.pyplot(fig)
             plt.close(fig)
         with cvc2:
@@ -1152,32 +1155,61 @@ elif page.startswith("3"):
                 f"**Rappel Oui : {tp_cv / max(tp_cv + fn_cv, 1):.1%}** · "
                 f"**Précision Oui : {tp_cv / max(tp_cv + fp_cv, 1):.1%}**\n\n"
                 f"TN = {tn_cv} · FP = {fp_cv} · FN = {fn_cv} · TP = {tp_cv}\n\n"
-                "Cette matrice est calculée **uniquement sur le train** (probabilités out-of-fold, "
-                "moyennées sur 5 répétitions de la CV 5-fold). Elle sert à choisir le seuil et le triage ; "
+                "Cette matrice est calculée **uniquement sur le train** : chaque message est prédit "
+                "par un modèle qui ne l'a pas vu (validation croisée), puis les probabilités sont "
+                "moyennées sur 5 répétitions. Elle sert à choisir le seuil et le triage ; "
                 "elle n'utilise jamais le test."
             )
-            st.caption("Le nombre de FP y est plus élevé que sur le test : la CV estime un régime "
-                       "moyen, le test de 104 messages est une seule réalisation. Les deux doivent être lus ensemble.")
+            st.caption("Le nombre de FP y est plus élevé que sur le test : la validation croisée décrit "
+                       "un régime moyen, le test de 104 messages est une seule réalisation. "
+                       "Les deux se lisent ensemble.")
 
         # -------- FN / FP aux seuils extrêmes --------
         st.markdown("### FN et FP peuvent-ils atteindre 0 ? — réponse chiffrée (test)")
         p_amel = fitted_cmp[NOM_AMELIORE].predict_proba(Xte_c)[:, list(fitted_cmp[NOM_AMELIORE].classes_).index(SEVERE)]
         y01_c = (yte_c == SEVERE).astype(int).values
-        tab_ext = table_fnfp(y01_c, p_amel, [0.10, 0.21, 0.50, 0.80, 0.88, 0.90, 0.98])
+        t_fn0 = float(np.floor(p_amel[y01_c == 1].min() * 100) / 100)
+        t_fp0 = float(np.ceil(p_amel[y01_c == 0].max() * 100) / 100)
+        tab_ext = table_fnfp(y01_c, p_amel, sorted({t_fn0, round(SEUIL, 2), t_fp0}))
+        st.markdown("**Seuil unique sur P(Oui)** — on ne peut annuler qu'une seule des deux erreurs :")
         st.dataframe(tab_ext, **DF_KW, hide_index=True)
-        fp_bas = int(tab_ext.loc[tab_ext["Seuil"] == "0.10", "FP"].iloc[0])
-        fn_haut = int(tab_ext.loc[tab_ext["Seuil"] == "0.98", "FN"].iloc[0])
+
+        def _triage_test(bas, haut):
+            zone = np.where(p_amel < bas, "Normal",
+                            np.where(p_amel >= haut, "Alerte", "Revue humaine"))
+            auto = zone != "Revue humaine"
+            return {"FN (auto)": int(((zone == "Normal") & (y01_c == 1)).sum()),
+                    "FP (auto)": int(((zone == "Alerte") & (y01_c == 0)).sum()),
+                    "Automatisés": int(auto.sum()), "Revue humaine": int((~auto).sum())}
+
+        tri_retenu = _triage_test(SEUIL_BAS, SEUIL_HAUT)
+        tri_zero = _triage_test(t_fn0, t_fp0)
+        st.markdown("**Avec le triage 3 zones** — les cas ambigus sortent du calcul automatique :")
+        st.dataframe(pd.DataFrame([
+            {"Règle": f"Triage retenu {SEUIL_BAS:.2f} / {SEUIL_HAUT:.2f}", **tri_retenu},
+            {"Règle": f"Triage « zéro erreur » {t_fn0:.2f} / {t_fp0:.2f}", **tri_zero},
+        ]), **DF_KW, hide_index=True)
+
+        fp_bas = int(tab_ext.loc[tab_ext["Seuil"] == f"{t_fn0:.2f}", "FP"].iloc[0])
+        fn_haut = int(tab_ext.loc[tab_ext["Seuil"] == f"{t_fp0:.2f}", "FN"].iloc[0])
+        fn_retenu = int(tab_ext.loc[tab_ext["Seuil"] == f"{round(SEUIL, 2):.2f}", "FN"].iloc[0])
+        fp_retenu = int(tab_ext.loc[tab_ext["Seuil"] == f"{round(SEUIL, 2):.2f}", "FP"].iloc[0])
         st.markdown(
-            f"- **FN = 0** est atteignable en baissant fortement le seuil (ici 0,10) : on attrape tous les "
-            f"malveillants, mais les fausses alertes explosent ({fp_bas} FP).\n"
-            f"- **FP = 0** est atteignable en montant le seuil vers 0,98 : plus aucune fausse alerte, mais "
-            f"{fn_haut} malveillants sont manqués (FN = {fn_haut}).\n"
-            "- **À 0,89 ou 0,90**, on obtient bien 1 FP, mais **15 à 18 FN** : ce n'est pas le compromis "
-            "1 FN / 2 FP recherché. Le triage actuel fait mieux sur la partie automatisée (1 FN / 1 FP) "
-            "tout en envoyant les cas douteux en revue humaine.\n"
-            "- **FN = 0 et FP = 0 simultanément est impossible** sur ce jeu : les distributions des deux "
-            "classes se chevauchent. Le seuil 0,21 est le compromis de coût `5·FN + FP` retenu ; "
-            "le triage 0,20 / 0,88 confine les erreurs restantes à une revue humaine."
+            f"- **FN = 0 sur le test est atteignable** en descendant le seuil à {t_fn0:.2f} : "
+            f"tous les malveillants sont détectés, mais on crée **{fp_bas} fausses alertes**.\n"
+            f"- **FP = 0 sur le test est atteignable** en montant le seuil à {t_fp0:.2f} : plus aucune "
+            f"fausse alerte, mais **{fn_haut} malveillants passent**.\n"
+            "- **Les deux à 0 avec un seuil unique est impossible** : les distributions des deux classes "
+            f"se chevauchent. Au seuil retenu {SEUIL:.2f} on a {fn_retenu} FN et {fp_retenu} FP.\n"
+            f"- **Avec le triage, zéro erreur automatisée est possible** ({t_fn0:.2f} / {t_fp0:.2f}) : "
+            f"0 FN et 0 FP sur la partie automatique, mais **{tri_zero['Revue humaine']} messages sur "
+            f"{len(y01_c)} ({tri_zero['Revue humaine'] / len(y01_c):.0%}) partent en revue humaine** — "
+            f"le système n'automatise plus que {tri_zero['Automatisés']} cas. "
+            f"Le triage retenu {SEUIL_BAS:.2f} / {SEUIL_HAUT:.2f} automatise "
+            f"{tri_retenu['Automatisés']} cas avec {tri_retenu['FN (auto)']} FN et "
+            f"{tri_retenu['FP (auto)']} FP : c'est le compromis choisi.\n"
+            "- **À 0,89 ou 0,90**, on obtient 1 FP mais **15 à 18 FN** : ce n'est pas le compromis "
+            "« 1 FN / 2 FP » recherché."
         )
 
         resultat = predire(saisi, modele, meta, SEUIL)
@@ -1413,7 +1445,7 @@ la validation croisée donne l'inverse (LR 0,785, SVM 0,784, RF 0,771). Il reste
             {"Paramètre": "log1p(domaine_age_jours)", "Valeur": "oui", "Effet": "Corrige l'asymétrie 1 → 5874 jours"},
             {"Paramètre": "Variables retirées", "Valeur": "heure_envoi, longueur_message, fautes_langue", "Effet": "Bruit / importance négative"},
             {"Paramètre": "class_weight", "Valeur": "balanced", "Effet": "Traite le déséquilibre 374/146"},
-            {"Paramètre": "Seuil de décision", "Valeur": SEUIL, "Effet": "Plateau de coût OOF 5·FN+FP (0,20–0,22)"},
+            {"Paramètre": "Seuil de décision", "Valeur": SEUIL, "Effet": "Plateau de coût en validation croisée, 5·FN+FP (0,20–0,22)"},
             {"Paramètre": "Zones de triage", "Valeur": f"{SEUIL_BAS:.2f} / {SEUIL_HAUT:.2f}", "Effet": "Revue humaine entre les deux"},
             {"Paramètre": "Split", "Valeur": "80/20 stratifié, seed 42", "Effet": "Résultat reproductible"},
             {"Paramètre": "Critère de sélection", "Valeur": "F1 macro (CV 5-fold)", "Effet": "Équilibre les deux classes"},
@@ -1436,11 +1468,13 @@ la validation croisée donne l'inverse (LR 0,785, SVM 0,784, RF 0,771). Il reste
                          "Rappel Oui", "FN", "FP", "Verdict"]
     st.dataframe(synthese[colonnes_synthese].sort_values(
         "F1 CV 5-fold (train)", ascending=False).round(3), **DF_KW, hide_index=True)
-    st.caption(f"**Modèle retenu : {NOM_AMELIORE}.** Le Random Forest affiche le meilleur F1 brut sur le "
-               "test (0,747), mais ce classement est obtenu *sur le test* et contredit la validation "
-               "croisée (LR 0,785 / SVM 0,784 / RF 0,771). La LR améliorée est choisie parce qu'elle "
-               "combine le meilleur classement indépendant du seuil (**AUC 0,910, AP 0,810**), un "
-               f"coût métier minimal (**{5 * rf['fn'] + rf['fp']} = 5·{rf['fn']} + {rf['fp']}**) et une "
+    st.caption(f"**Modèle retenu : {NOM_AMELIORE}.** Toutes les lignes de ce tableau sont calculées au "
+               f"seuil {SEUIL:.2f}, y compris les modèles de référence : ce seuil n'est pas calibré pour "
+               "eux. Au seuil par défaut 0,50, le notebook mesure **RF 0,747 / LR 0,694 / SVM 0,694** ; "
+               "en validation croisée 5-fold : **RF 0,771 / LR 0,785 / SVM 0,784**, et **0,814** pour la "
+               "LR améliorée. Elle est retenue parce qu'elle combine le meilleur classement indépendant "
+               "du seuil (**AUC 0,910, AP 0,810**), un coût métier minimal "
+               f"(**{5 * rf['fn'] + rf['fp']} = 5·{rf['fn']} + {rf['fp']}**) et une "
                "interprétation lisible (coefficients + permutation). Le seuil 0,21 et le triage "
                "0,20 / 0,88 viennent du train, jamais du test.")
 
@@ -1779,7 +1813,7 @@ print(f"TP = {tp} | TN = {tn} | FP = {fp} | FN = {fn}")
     fig, ax = plt.subplots(figsize=(8, 3.6))
     imp = S["importances"].head(9).iloc[::-1]
     ax.barh(imp["Variable"], imp["Importance"], color="#4C78A8")
-    ax.set_xlabel("Importance (impureté moyenne)")
+    ax.set_xlabel("Importance par permutation (chute du F1 macro)")
     ax.set_title("Contribution des variables à la décision", fontsize=10)
     fig.tight_layout()
     st.pyplot(fig)
@@ -1805,7 +1839,7 @@ Elles mesurent donc la **qualité de la probabilité** (calibration), pas la qua
     vals_modele = [rf["r2"], rf["mae"], rf["mse"]]
     vals_base = [rf["r2_base"], rf["mae_base"], rf["mse_base"]]
     xpos = np.arange(3)
-    ax.bar(xpos - 0.19, vals_modele, width=0.38, color="#4C78A8", label="Random Forest (test)")
+    ax.bar(xpos - 0.19, vals_modele, width=0.38, color="#4C78A8", label="Régression logistique améliorée (test)")
     ax.bar(xpos + 0.19, vals_base, width=0.38, color="#B0B7C3", label="Baseline (proportion constante)")
     ax.set_xticks(xpos)
     ax.set_xticklabels(etiquettes)
@@ -1974,7 +2008,7 @@ mesure le sur-apprentissage, attendu sur seulement {S['n_train']} lignes d'entra
 - **« Pourquoi R² si c'est de la classification ? »** Parce que la consigne le demande : on l'applique à la
   probabilité prédite, on l'interprète ({rf['r2']:.2f}) et on explique son plafond structurel
   (`p(1−p) = {rf['var_y']:.3f}`). La décision, elle, se juge sur la matrice de confusion.
-- **« Pourquoi un seuil de {SEUIL:.2f} et pas 0,50 ? »** À 0,50 on manque 5 phishing contre {rf['fn']} au seuil retenu. Le seuil vient du plateau de coût OOF, pas d'un choix à la main.- **« Comment évitez-vous la fuite de données ? »** Tous les `fit` (médiane, mode, scaler) sont faits sur le train ;
+- **« Pourquoi un seuil de {SEUIL:.2f} et pas 0,50 ? »** À 0,50 on manque 5 phishing contre {rf['fn']} au seuil retenu. Le seuil vient du plateau de coût en validation croisée, pas d'un choix à la main.\n- - **« Comment évitez-vous la fuite de données ? »** Tous les `fit` (médiane, mode, scaler) sont faits sur le train ;
   le test n'est utilisé qu'une fois. La sélection passe par une CV 5-fold sur le train.
 - **« Le modèle est-il explicable ? »** Globalement par l'importance des variables, localement par les règles de
   signaux affichées à l'analyste. Ce n'est pas du SHAP : c'est une approximation lisible, assumée.
@@ -1986,6 +2020,391 @@ mesure le sur-apprentissage, attendu sur seulement {S['n_train']} lignes d'entra
 
     st.info("**Démonstration live** → page **3. Prédiction / Verdict** : charger un scénario, modifier une valeur, "
             "montrer le changement de verdict et l'explication. Page **2** pour les graphiques détaillés.")
+
+elif page.startswith("6"):
+    S = compute_soutenance(propre, CFG["folder"])
+    rf = S["rf"]
+    tri = S["triage"]
+    n_brut = int(len(brut))
+    n_doublons = int(brut.duplicated().sum())
+    n_na = int(brut.isna().sum().sum())
+
+    st.header("6) Présentation du projet — support de soutenance")
+    st.caption("Version texte, lisible directement dans l'application : même contenu que le fichier "
+               "PowerPoint, sans capture d'écran. Les valeurs sont recalculées à l'ouverture.")
+
+    st.markdown(f"""
+## 1. Page de garde
+
+**IA et confiance numérique : mise en place d'une approche de pré-détection des messages
+malveillants (phishing) assistée par le Machine Learning.**
+
+- Master Veille et Intelligence Compétitive (VIC) — ESEN–ISCAE
+- Mini-projet 3 : cybersécurité, confiance numérique et veille stratégique
+- Prototype pédagogique — données synthétiques, aucune donnée personnelle, décision humaine obligatoire
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 2. Contexte général
+
+- Le phishing reste la porte d'entrée la plus utilisée des incidents : un message crédible suffit
+  à obtenir un identifiant, un paiement ou un accès.
+- L'IA générative abaisse le coût de production : textes sans fautes, personnalisation, volume.
+  Les signaux « style maladroit » perdent leur pouvoir discriminant.
+- Conséquences : perte financière, fuite de données, atteinte à la réputation, perte de confiance
+  dans le canal e-mail.
+- Lien avec la veille : repérer une campagne, qualifier le risque, décider qui vérifie en priorité.
+
+**Ce que le modèle ne fait pas** : il ne lit pas le texte brut du message. Il travaille sur
+{n_brut} lignes décrites par 9 signaux déjà extraits (urgence, liens, âge du domaine, etc.).
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 3. Problématique et objectifs
+
+> Comment exploiter les caractéristiques d'un message numérique pour identifier automatiquement
+> les messages potentiellement malveillants et assister la détection du phishing ?
+
+- **Objectif général** : estimer `P(Oui | x)`, la probabilité qu'un message soit malveillant,
+  à partir de 9 signaux.
+- **Objectifs spécifiques** : comparer plusieurs algorithmes, choisir un seuil de décision
+  justifié, expliquer chaque verdict, laisser la décision finale à l'humain.
+- **Livrable** : un prototype Streamlit + un notebook reproductible + un modèle sérialisé.
+""")
+    st.markdown("---")
+
+    st.markdown("""
+## 4. Solutions existantes et limites
+
+| Approche | Principe | Limite principale |
+|---|---|---|
+| SPF / DKIM / DMARC, blocklists | authentifier l'expéditeur, bloquer les domaines connus | contourné si un domaine légitime est compromis |
+| Filtres bayésiens / ML sur en-têtes | apprendre des mots et signaux techniques | dérive dès que l'attaquant change de style |
+| Réputation d'URL et de domaine | âge, listes noires, typosquatting | angles morts sur les domaines neufs non listés |
+| LLM / analyse sémantique | comprendre l'intention du texte | coût, latence, explicabilité faible, données envoyées à un tiers |
+| Suites commerciales | boîte noire multi-signaux | prix, dépendance, seuil invisible donc non ajustable |
+
+**Constat** : peu d'outils exposent une **probabilité** et un **seuil déplaçable**. C'est précisément
+la place d'un prototype académique transparent.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 5. Approche retenue et valeur ajoutée
+
+- **Classification binaire supervisée** : `Non` = message légitime, `Oui` = message malveillant.
+- **9 variables explicatives** tabulaires, aucune donnée textuelle.
+- **Quatre algorithmes comparés** : régression logistique, Random Forest (300 arbres), SVM RBF
+  et une régression logistique améliorée (transformation `log1p` de l'âge du domaine, deux
+  interactions, retrait du bruit).
+- **Seuil appris sur le train** ({SEUIL:.2f}) et **triage 3 zones** ({SEUIL_BAS:.2f} / {SEUIL_HAUT:.2f}).
+- **Valeur ajoutée** : probabilité affichée, seuil réglable, explication des signaux, 100 % local,
+  reproductible (seed 42). **Limite assumée** : prototype expérimental, il ne remplace pas une
+  passerelle de messagerie.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 6. Architecture globale
+
+`CSV` → **exploration** → **nettoyage** → **analyse exploratoire** → `X` / `y` →
+**séparation 80/20 stratifiée** → **prétraitement dans le pipeline** → **entraînement** →
+**validation croisée** → **évaluation test** → **sélection du modèle et du seuil** →
+**prédiction individuelle** → **sauvegarde joblib** → **application Streamlit**.
+""")
+    _img_process = ROOT / "artefacts" / "processus_phishing_ia.png"
+    if _img_process.exists():
+        st.image(str(_img_process), caption="Processus retenu : le test n'apparaît qu'à l'étape 8, "
+                 "après le choix du modèle et du seuil.", **IMG_KW)
+    st.markdown("---")
+
+    st.markdown(f"""
+## 7. Présentation du dataset
+
+- **Origine** : fichier local `dataset_phishing_ia - dataset_phishing_ia.csv`, **données
+  synthétiques** générées pour l'exercice. Aucune donnée personnelle, aucun vrai e-mail.
+- **Dimensions** : {n_brut} observations, {brut.shape[1]} colonnes, {n_doublons} doublons,
+  {S['n_propre']} observations après nettoyage.
+- **Cible** : `{TARGET}` = `Oui` / `Non`. Répartition : `Non` {S['n_non']} ({S['n_non'] / S['n_propre']:.2%}),
+  `Oui` {S['n_oui']} ({S['part_oui']:.2%}).
+- **Exclue** : `date` (variable calendaire sans justification métier) — donc 9 variables explicatives.
+
+| Variable | Sens métier |
+|---|---|
+| `heure_envoi` | heure d'envoi du message |
+| `longueur_message` | longueur du corps du message |
+| `nb_liens` | nombre de liens contenus |
+| `urgence_score` | niveau d'urgence du ton employé |
+| `domaine_age_jours` | âge du domaine de l'expéditeur (en jours) |
+| `fautes_langue` | nombre de fautes détectées |
+| `expediteur_connu` | expéditeur présent dans le carnet d'adresses (1 = oui) |
+| `piece_jointe` | présence d'une pièce jointe (1 = oui) |
+| `personnalisation_score` | degré de personnalisation du message |
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 8. Nettoyage et qualité des données
+
+- **{n_doublons} doublons** supprimés : {n_brut} → {S['n_propre']} observations.
+- **{n_na} valeurs manquantes**, toutes dans `domaine_age_jours` ({n_na / n_brut:.2%} des lignes) :
+  imputation par la **médiane apprise sur le train** — robuste aux valeurs extrêmes (l'âge va de
+  1 à 5 874 jours) et sans fuite de données.
+- **Aucune valeur manquante** dans les 8 autres variables.
+- **Standardisation** des variables numériques dans le pipeline : nécessaire pour la régression
+  logistique et le SVM, sans effet sur les arbres.
+- **Aucun one-hot encoding** : les 9 variables sont numériques (les indicateurs binaires sont déjà 0/1).
+- Le **test n'est jamais utilisé pour calculer** une médiane, une moyenne ou un écart-type.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 9. Analyse exploratoire des données
+
+- **Répartition de la cible** : `Non` {S['n_non']} ({S['n_non'] / S['n_propre']:.2%}) /
+  `Oui` {S['n_oui']} ({S['part_oui']:.2%}) → jeu déséquilibré, d'où le F1 macro et `class_weight="balanced"`.
+- **Âge du domaine** : les messages malveillants utilisent des domaines beaucoup plus récents.
+- **Urgence** et **nombre de liens** : plus élevés en moyenne dans la classe `Oui`.
+- **Expéditeur connu** : variable protectrice (quasi absente dans la classe `Oui`).
+- **Fautes de langue** : la corrélation avec la cible est quasi nulle
+  ({float(S['corr_cible'].get('fautes_langue', 0)):+.2f}) : l'IA générative écrit correctement.
+- ⚠️ Une différence de moyenne n'est pas un pouvoir prédictif : seule la validation croisée
+  mesure la contribution réelle d'une variable.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 10. Matrice de corrélation
+
+- **Corrélations négatives** : `domaine_age_jours` ({float(S['corr_cible']['domaine_age_jours']):+.2f})
+  — plus le domaine est ancien, moins le message est suspect.
+- **Corrélations positives** : `urgence_score` ({float(S['corr_cible']['urgence_score']):+.2f}),
+  `nb_liens` ({float(S['corr_cible']['nb_liens']):+.2f}) — plus ils montent, plus le risque monte.
+- **Corrélations proches de zéro** : `heure_envoi`, `longueur_message`, `fautes_langue` —
+  aucun signal linéaire exploitable.
+- **Colinéarité faible** entre variables explicatives : pas de redondance qui fausserait l'importance.
+- ⚠️ **Corrélation ≠ causalité** ; Pearson ne capte qu'un lien linéaire, d'où l'ajout d'une
+  régression logistique multivariée et d'un SVM à noyau RBF pour les effets non linéaires.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 11. Préparation et séparation des données
+
+- `X` = les 9 variables explicatives ; `y` = `{TARGET}`. `date` exclue.
+- **Séparation 80 / 20** avec `train_test_split(..., stratify=y, random_state=42)` :
+  **{S['n_train']} messages en entraînement**, **{S['n_test']} en test**.
+- La stratification conserve la proportion de `Oui` dans les deux sous-ensembles
+  ({S['part_oui']:.1%}).
+- **Tout le prétraitement vit dans le pipeline** (imputation, standardisation, feature engineering) :
+  chaque `fit` est fait sur le train du pli, jamais sur le test → pas de fuite de données.
+- Le test n'est ouvert **qu'une seule fois**, après le choix du modèle et du seuil.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 12. Les modèles de classification
+
+| Modèle | Principe | Paramètres principaux | Avantage | Limite |
+|---|---|---|---|---|
+| **Régression logistique** | frontière linéaire, probabilité par fonction sigmoïde | `max_iter=2000`, `class_weight=balanced` | simple, coefficients lisibles | ne capte pas les interactions seules |
+| **Random Forest** | moyenne de 300 arbres de décision | `n_estimators=300`, `min_samples_leaf=2`, `class_weight=balanced` | non linéaire, robuste | moins interprétable, peut surapprendre |
+| **SVM RBF** | frontière non linéaire dans un espace transformé | `C=1`, `gamma=scale`, `probability=True` | bon en dimension moyenne | lent, probabilités approximatives, peu explicable |
+| **LR améliorée (retenue)** | LR sur `log1p(âge)`, 2 interactions, bruit retiré | `max_iter=3000`, `class_weight=balanced` | meilleur classement, explicable | dépend du feature engineering |
+
+Pourquoi ces trois-là ? Parce qu'ils représentent trois familles différentes : linéaire,
+ensemble d'arbres, noyau. Comparer trois variantes du même famille n'apprendrait rien.
+La baseline « toujours `Non` » sert de point de repère : F1 macro 0,419, aucun phishing détecté.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 13. Protocole expérimental et validation croisée
+
+1. **Entraînement** sur les {S['n_train']} messages du train, prétraitement inclus dans le pipeline.
+2. **Validation croisée stratifiée 5-fold sur le train** : elle sert à comparer les modèles et à
+   choisir le seuil ; le test n'y participe pas.
+3. **Validation croisée répétée 5×5** pour la stabilité : 5 découpages différents, probabilités
+   moyennées — AUC {0.9092:.4f} ± {0.0031:.4f}, AP {0.8119:.4f} ± {0.0034:.4f}.
+4. **Seuil** : plateau de coût quasi minimal `5·FN + FP`, soit 0,20–0,22 → **{SEUIL:.2f}**.
+5. **Triage** : rappel ≥ 98 % pour la zone verte, précision ≥ 85 % pour la zone rouge
+   → **{SEUIL_BAS:.2f} / {SEUIL_HAUT:.2f}**.
+6. **Test final** lu une seule fois : AUC {rf['auc']:.3f}, AP 0,810, Brier {rf['mse']:.3f}.
+
+**Pourquoi le F1 macro ?** Il donne le même poids aux deux classes ; l'accuracy seule
+récompense un modèle qui ne détecte rien (72 % de `Non`).
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 14. Résultats expérimentaux
+
+**Référence du notebook — seuil par défaut 0,50, test de {S['n_test']} messages :**
+
+| Modèle | Accuracy | Précision `Oui` | Rappel `Oui` | F1 macro | F1 macro en validation croisée |
+|---|---:|---:|---:|---:|---:|
+| Random Forest | 0,788 | 0,606 | 0,690 | 0,747 | 0,771 |
+| Régression logistique | 0,721 | 0,500 | 0,759 | 0,694 | 0,785 |
+| SVM RBF | 0,721 | 0,500 | 0,759 | 0,694 | 0,784 |
+| **LR améliorée ({SEUIL:.2f})** | **{rf['acc']:.3f}** | **{rf['precision']:.3f}** | **{rf['rappel']:.3f}** | **{rf['f1_macro']:.3f}** | **0,814** |
+
+- Le Random Forest gagne au seuil 0,50, mais perd en validation croisée : son avance est un
+  artefact du seuil, pas une supériorité réelle.
+- La LR améliorée gagne sur le **classement indépendant du seuil** : **AUC 0,910**, **AP 0,810**,
+  **Brier 0,123**, devant RF (0,866 / 0,698), LR (0,832 / 0,656) et SVM (0,834 / 0,633).
+- **Modèle retenu : régression logistique améliorée.** Coût au seuil {SEUIL:.2f} :
+  `5·{rf['fn']} + {rf['fp']} = {5 * rf['fn'] + rf['fp']}`.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 15. Matrices de confusion et interprétation métier
+
+| | Prédit `Non` | Prédit `Oui` |
+|---|---:|---:|
+| **Réel `Non`** | TN = {rf['tn']} | FP = {rf['fp']} |
+| **Réel `Oui`** | FN = {rf['fn']} | TP = {rf['tp']} |
+
+- **TP** = phishing correctement détecté ; **TN** = message légitime correctement laissé passer.
+- **FP** = fausse alerte : coût = quelques minutes d'analyste.
+- **FN** = phishing non détecté : coût = compromission possible. **C'est l'erreur critique.**
+- Au seuil {SEUIL:.2f} : rappel **{rf['rappel']:.1%}**, précision **{rf['precision']:.1%}**,
+  F1 macro **{rf['f1_macro']:.3f}**, accuracy **{rf['acc']:.1%}** (mais la baseline atteint déjà 72 %).
+- **Triage** : {tri['auto']}/{tri['total']} messages traités automatiquement, {tri['revue']} envoyés
+  à l'analyste ; sur la partie automatisée, {tri['fn_auto']} FN et {tri['fp_auto']} FP.
+- **Zéro erreur automatisée est possible** (seuils 0,07 / 0,98) mais seulement en envoyant
+  **74 messages sur 104** en revue humaine : le système n'automatise alors plus que 30 cas.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 16. Importance des variables et analyse des erreurs
+
+- Importance mesurée par **permutation sur le test** (chute du F1 macro quand on mélange une
+  variable) : c'est la contribution réelle au classement, pas l'impureté des arbres.
+- Variables en tête :
+
+{chr(10).join(f"- `{r.Variable}` : {r.Importance:+.4f}" for r in S['importances'].head(4).itertuples())}
+
+- **`domaine_age_jours`** domine : un domaine très récent est le signal le plus fort.
+- Viennent ensuite l'**urgence**, l'**expéditeur inconnu** et le **nombre de liens** — cohérents
+  avec les pratiques d'attaque observées.
+- **`heure_envoi`, `longueur_message`, `fautes_langue`** apportent peu : le style ne suffit plus.
+- ⚠️ Importance ≠ causalité : elle indique de quoi **le modèle dépend**, pas ce qui **provoque**
+  le phishing. Une variable corrélée à une autre peut récupérer son importance.
+- **Erreurs** : {rf['fp']} faux positifs (messages normaux trop « urgents » ou avec plusieurs liens)
+  et {rf['fn']} faux négatif (phishing très bien imité). Les deux vivent près du seuil.
+""")
+    st.markdown("---")
+
+    _sc_lines = []
+    for _sc in CFG["scenarios"]:
+        _r = predire(_sc["valeurs"], modele, meta, SEUIL)
+        _sc_lines.append(
+            f"| {_sc['nom']} | {_r['p_severe']:.1%} | "
+            f"{'Oui — malveillant' if _r['classe'] == SEVERE else 'Non — légitime'} | "
+            f"{_r['zone']} | {_r['action']} |")
+    st.markdown(f"""
+## 17. Tests individuels, limites et perspectives
+
+**Trois scénarios pédagogiques** (mêmes variables que le formulaire de la page 3) :
+
+| Scénario | P(Oui) | Classe binaire | Zone | Action |
+|---|---:|---|---|---|
+{chr(10).join(_sc_lines)}
+
+Ces scénarios sont **construits à la main** : ce ne sont ni des messages réels, ni des données
+externes inédites. Le vrai contrôle reste le test de {S['n_test']} messages.
+
+**Limites**
+- Dataset **synthétique** de {S['n_propre']} lignes : la généralisation à de vrais e-mails n'est pas démontrée.
+- **Pas de texte brut** : le modèle ne lit pas le message, il exploite des signaux déjà extraits.
+- **Aucune évaluation externe** indépendante ; test de {S['n_test']} messages dont {S['n_oui']} malveillants.
+- **Probabilités non calibrées** et **seuil sensible** : 1 FN / 1 FP en moins ou en plus change le coût.
+- **Dérive** non traitée : pas de suivi de performance en production.
+
+**Perspectives**
+- Tester sur des données réelles anonymisées et diversifiées.
+- Ajouter des variables issues des URL (réputation, âge du certificat, typosquatting) et du texte.
+- Calibrer les probabilités (Platt, isotonique) et étudier le seuil avec le RSSI.
+- Explicabilité locale (SHAP) et boucle de retour analyste.
+- Évaluer la robustesse aux campagnes générées par IA.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 18. Conclusion
+
+- **Problématique** : estimer la probabilité qu'un message soit malveillant à partir de signaux
+  observables, et aider l'analyste à prioriser.
+- **Démarche** : nettoyage contrôlé, séparation stricte train/test, pipeline sans fuite,
+  validation croisée répétée, seuil choisi sur le train par le coût métier.
+- **Résultats réels** : AUC **{rf['auc']:.3f}**, AP **0,810**, Brier **{rf['mse']:.3f}** ;
+  au seuil {SEUIL:.2f}, rappel **{rf['rappel']:.1%}** pour {rf['fn']} phishing manqué et
+  {rf['fp']} fausses alertes ; triage {tri['auto']}/{tri['total']} automatisés.
+- **Modèle retenu** : régression logistique améliorée — meilleur classement, coût minimal, explicable.
+- **Valeur pour la confiance numérique** : un pré-filtre transparent, réglable et auditable,
+  qui rend la décision humaine plus rapide sans jamais la remplacer.
+- **Limites** : données synthétiques, pas de texte brut, pas de validation externe.
+
+**Merci pour votre attention — Questions ?**
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## Annexe — les métriques, une par une
+
+| Métrique | Formule | Ce qu'elle mesure | Valeur ici |
+|---|---|---|---|
+| **Accuracy** | `(TP + TN) / n` | part de décisions correctes | {rf['acc']:.3f} |
+| **Précision `Oui`** | `TP / (TP + FP)` | fiabilité des alertes | {rf['precision']:.3f} |
+| **Rappel `Oui`** | `TP / (TP + FN)` | part des phishing détectés | {rf['rappel']:.3f} |
+| **F1 macro** | moyenne des F1 des deux classes | équilibre précision / rappel | {rf['f1_macro']:.3f} |
+| **AUC** | aire sous la courbe ROC | qualité du classement, tous seuils confondus | {rf['auc']:.3f} |
+| **AP** | aire sous la courbe Precision-Recall | idem, adapté aux classes déséquilibrées | 0,810 |
+| **MAE** | `moyenne(abs(y - P(Oui)))` | erreur moyenne en points de probabilité | {rf['mae']:.3f} |
+| **MSE (= Brier)** | `moyenne((y - P(Oui))²)` | erreur quadratique, punit l'excès de confiance | {rf['mse']:.3f} |
+| **RMSE** | `racine(MSE)` | même erreur, dans l'unité d'origine | {np.sqrt(rf['mse']):.3f} |
+| **R²** | `1 - SSE / SST` | part de variance de la cible expliquée | {rf['r2']:.3f} |
+
+**C'est quoi l'AUC ?** L'aire sous la courbe ROC. On classe au hasard un message malveillant et un
+message légitime : l'AUC est la probabilité que le modèle donne une probabilité plus élevée au
+malveillant. 0,5 = hasard, 1,0 = séparation parfaite. Ici **{rf['auc']:.3f}** : le modèle classe
+correctement 9 fois sur 10, **indépendamment du seuil**. C'est la métrique la plus honnête pour
+comparer des modèles, mais elle ne dit pas combien d'alertes seront émises.
+
+**Pourquoi R², MAE, MSE ne pilotent pas la décision ?**
+Ce sont des métriques de **régression**. Appliquées à une cible binaire, elles comparent une
+probabilité à une étiquette 0/1 :
+- sur des décisions 0/1, `MAE = 1 - accuracy` et `RMSE = racine(1 - accuracy)` : aucune information nouvelle ;
+- `R²` a un plafond structurel `p(1-p) = {rf['var_y']:.3f}` pour une cible binaire
+  (ici {rf['r2']:.3f} est donc élevé, pas « faible ») ;
+- elles sont **symétriques** : un FN et un FP coûtent pareil, ce qui est faux en sécurité ;
+- elles **ignorent le seuil** réellement utilisé.
+
+Les critères de décision retenus sont : **rappel `Oui`, matrice de confusion au seuil {SEUIL:.2f},
+F1 macro, AUC/AP et validation croisée**. R², MAE, MSE et RMSE restent affichés et expliqués parce
+que le cahier des charges les demande — pas parce qu'ils choisissent le modèle.
+""")
+
+    st.markdown("### Télécharger les livrables")
+    _pptx = ROOT / "Presentation_Projet_Phishing_IA.pptx"
+    _cols = st.columns(2)
+    with _cols[0]:
+        if _pptx.exists():
+            st.download_button("Présentation PowerPoint (.pptx)", _pptx.read_bytes(),
+                               file_name=_pptx.name,
+                               mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                               **BTN_KW)
+        else:
+            st.caption("Fichier PowerPoint absent du dossier.")
+    with _cols[1]:
+        if NOTEBOOK.exists():
+            st.download_button("Notebook exécuté (.ipynb)", NOTEBOOK.read_bytes(),
+                               file_name=NOTEBOOK.name, mime="application/x-ipynb+json",
+                               **BTN_KW)
 
 else:
     st.header("4) Notebook (référence)")

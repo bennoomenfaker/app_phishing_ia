@@ -38,6 +38,7 @@ Si toutes les dépendances sont déjà installées pour l'utilisateur courant,
 | 3. Prédiction / Verdict | 3 scénarios, formulaire, comparaison des modèles, matrice de confusion CV, FN/FP par seuil, explication du verdict |
 | 4. Notebook | notebook complet, téléchargeable et affiché |
 | 5. Soutenance (12 points) | plan de présentation : solutions existantes, problème, schéma global, données, justification du modèle, corrélation, résultats, **R² / MAE / MSE**, triage 3 zones, test final, limites et perspectives |
+| 6. Présentation (soutenance) | la présentation complète en **Markdown** (18 parties + glossaire des métriques), téléchargement du `.pptx` et du notebook |
 
 Les matrices de confusion des pages 2 et 5 portent **TN, FP, FN et TP dans chaque case**
 (et non seulement dans un texte en dessous).
@@ -123,8 +124,9 @@ les graphiques et la matrice de corrélation sont recalculés automatiquement.
 
 ## Matrice de confusion de la validation croisée
 
-La page 3 affiche aussi la matrice **OOF** (out-of-fold) calculée sur le train seul,
-avec les probabilités moyennées sur 5 répétitions de la CV 5-fold, au seuil `0,21` :
+La page 3 affiche aussi la matrice de confusion de la **validation croisée**, calculée sur
+le train seul (chaque message est prédit par un modèle qui ne l'a pas vu), avec les probabilités
+moyennées sur 5 répétitions, au seuil `0,21` :
 
 | | Prédit `Non` | Prédit `Oui` |
 |---|---:|---:|
@@ -139,16 +141,20 @@ seule réalisation. Les deux matrices doivent être lues ensemble.
 
 La page 3 affiche un tableau de seuils sur le test. Réponse honnête :
 
-- **FN = 0** est atteignable en baissant fortement le seuil (0,10) : 1 FN devient 0,
-  mais les fausses alertes explosent (environ 41 FP) ;
-- **FP = 0** est atteignable en montant le seuil vers 0,98 : plus aucune fausse alerte,
-  mais 26 malveillants sont manqués ;
+- **FN = 0** est atteignable en baissant le seuil à `0,07` : tous les malveillants sont
+  détectés, mais les fausses alertes explosent (**48 FP**) ;
+- **FP = 0** est atteignable en montant le seuil à `0,98` : plus aucune fausse alerte,
+  mais **26 malveillants** sont manqués ;
 - **à 0,89 ou 0,90**, on obtient bien 1 FP, mais **15 à 18 FN** : ce n'est pas le
   compromis « 1 FN / 2 FP ». Le triage actuel fait mieux sur la partie automatisée
   (1 FN / 1 FP) tout en envoyant les cas douteux en revue humaine ;
-- **FN = 0 et FP = 0 en même temps est impossible** sur ce jeu : les distributions des
-  deux classes se chevauchent. Le seuil `0,21` est le compromis de coût `5·FN + FP`
-  retenu ; le triage `0,20 / 0,88` confine les erreurs restantes à une revue humaine.
+- **FN = 0 et FP = 0 avec un seuil unique est impossible** sur ce jeu : les distributions des
+  deux classes se chevauchent. Le seuil `0,21` est le compromis de coût `5·FN + FP` retenu ;
+  le triage `0,20 / 0,88` confine les erreurs restantes à une revue humaine (1 FN et 1 FP
+  sur la partie automatisée, 61 messages sur 104) ;
+- **zéro erreur automatisée est possible** avec un triage `0,07 / 0,98` : 0 FN et 0 FP sur la
+  partie automatique, mais **74 messages sur 104 (71 %) partent en revue humaine** et le
+  système n'automatise plus que 30 cas. C'est le vrai arbitrage : automatisation contre erreurs.
 
 ## Limites
 
