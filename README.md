@@ -34,28 +34,44 @@ cd "app_phishing_ia"
 
 L'application s'ouvre sur <http://localhost:8501>.
 
+### Vérification hors-ligne (sans installer de dépendance)
+
+```bash
+python3 -m py_compile app.py
+python3 - <<'PY'
+import json
+from pathlib import Path
+for f in ["model_meta.json", "notebook_ML_IA_confiance_numerique.ipynb"]:
+    json.loads(Path(f).read_text(encoding="utf-8"))
+    print("JSON OK :", f)
+PY
+```
+
+Ces contrôles valident la syntaxe de `app.py` et l'intégrité des artefacts JSON. Le rendu Streamlit
+n'est pas testé ici : `streamlit` n'est pas installé dans l'environnement de vérification.
+
 Si toutes les dépendances sont déjà installées pour l'utilisateur courant,
 `python3 -m streamlit run app.py` suffit.
 
 ## Pages de l'application
 
+Navigation simplifiée en cinq pages :
+
 | Page | Contenu |
 |---|---|
-| 1. Contexte & Problématique | contexte, questions de recherche, dictionnaire des variables |
-| 2. Processus ML (pas à pas) | audit, EDA, corrélations, comparaison des modèles, matrices de confusion |
-| 3. Prédiction / Verdict | 3 scénarios, formulaire, comparaison des modèles, matrice de confusion CV, FN/FP par seuil, explication du verdict |
-| 4. Notebook | notebook complet, téléchargeable et affiché |
-| 5. Soutenance (12 points) | plan de présentation : solutions existantes, problème, schéma global, données, justification du modèle, corrélation, résultats, **R² / MAE / MSE**, triage 3 zones, test final, limites et perspectives |
-| 6. Présentation (soutenance) | la présentation complète en **Markdown** (18 parties + glossaire des métriques + **annexe A** `personnalisation_score` + **annexe B** vérifications et traçabilité), **illustrée avec les graphiques du PPTX**, téléchargement du `.pptx` et du notebook |
+| 1. Contexte & Problématique | contexte général, problématique, objectif de pré-dépistage, questions de recherche, erreur la plus coûteuse |
+| 2. EDA des données | KPI de nettoyage, aperçu du CSV, distribution de la cible, histogrammes par classe, corrélation avec la cible |
+| 3. Prédiction / Verdict | 3 scénarios, formulaire, verdict binaire, probabilité, zone de triage secondaire, explication du verdict |
+| 4. Explication des attributs | dictionnaire des variables, définition / échelle / rôle, moyennes et corrélations calculées à l'ouverture |
+| 5. Guide de présentation | processus ML, AUC / AP / OOF, coût `5·FN + FP`, matrices OOF et test, déploiement Streamlit, points clés de soutenance |
 
-Toutes les matrices de confusion (pages 2, 3 et 5) sont des **graphiques annotés** : chaque case
-affiche **TN / FP / FN / TP**, son **effectif** et son **pourcentage**. Aucune matrice n'est affichée
-uniquement sous forme de tableau. Les graphiques de distribution (cible, histogrammes, boxplots,
-variables catégorielles) portent aussi les **valeurs et pourcentages** directement sur le graphique.
+Les matrices OOF et test sont présentées en **tableaux annotés** dans la page 5, avec le décompte
+`TN / FP / FN / TP` et le coût métier. Les graphiques de la page 2 (cible, histogrammes, corrélation)
+sont recalculés à l'ouverture depuis le CSV — aucune valeur n'est saisie à la main.
 
 ## Explication des variables
 
-Chaque attribut est expliqué dans l'application (page 1, section **Explication détaillée des variables**),
+Chaque attribut est expliqué dans l'application (page 4, **Explication des attributs**),
 dans le notebook (cellule **Dictionnaire détaillé des attributs**) et dans le tableau ci-dessous.
 
 | Variable | Définition | Lecture phishing | Rôle dans le modèle |
@@ -176,7 +192,7 @@ Plan imposé :
 18. Conclusion et questions
 19. Annexe A — personnalisation_score (0–10 ; exemples générique/personnalisé ;
     moyennes 4,82 vs 5,40 ; r ≈ +0,10 ; ne prouve rien seule)
-20. Annexe B — vérifications et traçabilité (notebook unique réexécuté, 89 cellules, 0 erreur ;
+20. Annexe B — vérifications et traçabilité (notebook unique réexécuté, 90 cellules, 0 erreur ;
     3 cas du formulaire ; FN/FP par seuil et triage zéro erreur 0,07/0,98 → 74/104 en revue)
 
 Points à ne pas rater :
@@ -184,8 +200,8 @@ Points à ne pas rater :
 - Le seuil 0,21 vient du train (plateau de coût 0,20–0,22), jamais du test.
 - FN = 0 et FP = 0 avec un seuil unique est impossible ; le triage 0,07/0,98 donne 0 FN / 0 FP
   sur la partie automatisée mais envoie 74 messages sur 104 en revue humaine.
-- R², MAE, MSE sont affichés parce que le cahier des charges les demande, mais ne pilotent pas
-  la décision.
+- R², MAE et MSE restent présents dans la présentation PowerPoint comme mesure de calibration,
+  mais ne pilotent pas la décision ; l'app simplifiée affiche le Brier Score et les matrices.
 ```
 
 ### Contrôles après génération
@@ -205,12 +221,11 @@ Les trois scénarios chargibles donnent trois verdicts différents, calculés su
 |---|---:|---|---|
 | 1. Message normal | 0,1 % | Non — légitime | 🟢 NORMAL — surveillance courante |
 | 2. Phishing typé IA | 100,0 % | Oui — malveillant | 🔴 ALERTE — vérification humaine prioritaire |
-| 3. À surveiller | 47,1 % | **Oui — malveillant probable** | 🟠 VIGILANCE — revue humaine |
+| 3. À surveiller | 47,1 % | **Malveillant** | 🟠 VIGILANCE — revue humaine |
 
-La **classe binaire** est toujours `Oui` ou `Non` ; la **zone de triage** est une
-action (qui doit agir, à quelle priorité), pas une troisième classe. Le tableau de
-comparaison des modèles affiche les deux séparément : `P(Oui) %`, `Classe (seuil 0,21)`,
-`Zone de triage`, `Action`.
+La **classe binaire** est toujours `Malveillant` ou `Non malveillant` ; la **zone de triage**
+est une action (qui doit agir, à quelle priorité), pas une troisième classe. Dans l'app, le verdict
+binaire est affiché en premier et la zone de triage en information complémentaire.
 
 Règle affichée dans l'application :
 
@@ -225,21 +240,22 @@ validation humaine obligatoire, aucune suppression automatique.
 
 ## Vérifier que l'app utilise le nouveau dataset
 
-La page 2 affiche la source et l'empreinte SHA-256 du CSV lu au lancement :
-`dataset_phishing_ia - dataset_phishing_ia.csv`, préfixe `9383a1b70165a728`,
-**524 lignes brutes → 520 après `drop_duplicates()`** (374 `Non` / 146 `Oui`).
-Le hash fait partie de la clé de cache Streamlit : si le CSV est remplacé, les données,
-les graphiques et la matrice de corrélation sont recalculés automatiquement.
+La page 2 affiche la source du CSV lu au lancement :
+`dataset_phishing_ia - dataset_phishing_ia.csv`, soit **524 lignes brutes → 520 après
+`drop_duplicates()`** (374 `Non` / 146 `Oui`). L'empreinte SHA-256 (`9383a1b70165a728…`)
+reste vérifiée dans `app.py` (`EMPREINTE_CSV`) et fait partie de la clé de cache Streamlit :
+si le CSV est remplacé, les données, les graphiques et la matrice de corrélation sont
+recalculés automatiquement.
 
 ## Fichiers
 
 | Fichier | Rôle |
 |---|---|
-| `app.py` | Interface Streamlit : contexte, processus ML, prédiction, notebook, soutenance |
+| `app.py` | Interface Streamlit : contexte, EDA, prédiction, explication des attributs, guide de soutenance |
 | `model.joblib` | Pipeline scikit-learn entraîné (régression logistique améliorée) |
 | `model_meta.json` | Seuils appris, bornes des champs, métriques, triage, citation |
 | `dataset_phishing_ia - dataset_phishing_ia.csv` | Jeu de données synthétique (copie locale) |
-| `notebook_ML_IA_confiance_numerique.ipynb` | Notebook de référence, téléchargeable depuis l'app |
+| `notebook_ML_IA_confiance_numerique.ipynb` | Notebook de référence, source des décisions scientifiques |
 | `Presentation_Projet_Phishing_IA.pptx` | Présentation 20 diapositives (18 + 2 annexes), notes orales, images issues du notebook exécuté |
 | `scripts/make_pptx.py` | Régénère le PPTX depuis les images de `artefacts/pptx/` |
 | `notebook_ML_IA_confiance_numerique.md` | Version Markdown du notebook exécuté (avec ses images) |
@@ -268,12 +284,12 @@ candidat : c'est le **plancher de référence** (0,418, aucun phishing détecté
 
 La LR améliorée est donc **le meilleur modèle en validation croisée**, et aussi le meilleur en
 AUC/AP (0,910 / 0,810) avec le coût métier minimal (33). Le test de 104 messages ne sert qu'au
-contrôle final. Ces valeurs sont affichées dans l'app (page 3, page 5 §10, page 6 §14) et dans la
+contrôle final. Ces valeurs sont récapitulées dans l'app (page 5, **Guide de présentation**) et dans la
 diapositive 14 du PPTX.
 
 ## Protocole reproductible
 
-- `drop_duplicates()`, suppression de `date` et `semaine` (aucune justification métier),
+- `drop_duplicates()`, suppression de `date` (variable calendaire sans justification métier),
   cible jamais incluse dans `X`.
 - Split 80/20 stratifié, `random_state=42` ; validation croisée **StratifiedKFold 5×5
   répétée sur le train uniquement** : AUC en validation croisée `0,909 ± 0,003`, AP `0,812 ± 0,003`.
@@ -296,13 +312,13 @@ diapositive 14 du PPTX.
 - **Incertitude (bootstrap 2 000 tirages sur le test)** : rappel IC95 %
   `[0,886 ; 1,000]`, précision `[0,368 ; 0,636]`, taux de fausses alertes
   `[0,262 ; 0,481]`. Ces intervalles larges rappellent la petite taille de l'échantillon.
-- Page 5 : R², MAE et MSE sont calculés entre la probabilité `P(Oui)` et la vérité encodée 0/1
-  (MSE = score de Brier) puis interprétés ; ils mesurent la **calibration**, la décision se juge
-  sur la matrice de confusion au seuil appris.
+- Dans le PPTX : R², MAE et MSE sont calculés entre la probabilité `P(Oui)` et la vérité encodée
+  0/1 (MSE = score de Brier) puis interprétés ; ils mesurent la **calibration**, la décision se juge
+  sur la matrice de confusion au seuil appris. L'app affiche le Brier Score (0,123) en page 5.
 
 ## Matrice de confusion de la validation croisée
 
-La page 3 affiche aussi la matrice de confusion de la **validation croisée**, calculée sur
+La page 5 affiche aussi la matrice de confusion de la **validation croisée**, calculée sur
 le train seul (chaque message est prédit par un modèle qui ne l'a pas vu), avec les probabilités
 moyennées sur 5 répétitions, au seuil `0,21` :
 
@@ -317,7 +333,7 @@ seule réalisation. Les deux matrices doivent être lues ensemble.
 
 ### FN et FP peuvent-ils atteindre 0 ?
 
-La page 3 affiche un tableau de seuils sur le test. Réponse honnête :
+La page 5 explique l'arbitrage seuil / triage. Réponse honnête :
 
 - **FN = 0** est atteignable en baissant le seuil à `0,07` : tous les malveillants sont
   détectés, mais les fausses alertes explosent (**48 FP**) ;
@@ -336,18 +352,20 @@ La page 3 affiche un tableau de seuils sur le test. Réponse honnête :
 
 ## Vérifications et traçabilité
 
-Ces vérifications sont aussi affichées dans l'application (page 6, **annexe B**) et dans le PPTX
+Ces vérifications sont aussi résumées dans l'application (page 5, **Guide de présentation**) et dans le PPTX
 (diapositive 20).
 
 **Notebook : un seul exemplaire, réellement exécuté**
 
 - Le notebook du projet est **identique octet pour octet** au notebook réexécuté de zéro
-  (`cmp` → IDENTIQUE) : **89 cellules, 0 erreur**.
+  (`cmp` → IDENTIQUE) : **90 cellules, 0 erreur**.
 - `model.joblib` identique ; `model_meta.json` ne change que des libellés (mêmes seuils, mêmes
   métriques).
-- « OOF » supprimé partout (notebook, application, présentation) → « validation croisée ».
-  Résultats inchangés : **AUC 0,9092 ± 0,0031**, seuil **0,21**, test **AUC 0,910 / AP 0,810 /
-  Brier 0,123**.
+- Le terme **OOF** est conservé et explicité (notebook page 9 bis, application page 5) : il s'agit
+  d'une méthode de production de prédictions hors pli, pas d'une métrique. Résultats inchangés :
+  **AUC 0,9092 ± 0,0031**, seuil **0,21**, test **AUC 0,910 / AP 0,810 / Brier 0,123**.
+- Cohérence arithmétique corrigée dans le notebook : au seuil 0,21, le coût OOF vaut
+  `5×3 + 117 = 132` ; le coût minimal **128** correspond au seuil 0,20 (`5×2 + 118`).
 - La matrice de corrélation **inclut la cible** (`cible (Oui = 1)`) : on y lit à la fois la
   redondance entre variables et l'association de chacune avec la malveillance.
 
