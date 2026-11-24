@@ -61,8 +61,8 @@ couvrent l'intégralité du pipeline.
 | Page | Contenu |
 |---|---|
 | 1. Accueil / Vue d'ensemble | contexte général, problématique, objectif de pré-dépistage, questions de recherche, erreur la plus coûteuse |
-| 2. Exploration des données (EDA) | KPI de nettoyage, aperçu du CSV, distribution de la cible, histogrammes par classe, corrélation **train uniquement** |
-| 3. Analyse des corrélations | heatmap train, classement commenté variable par variable, limites de Pearson et de la causalité |
+| 2. Exploration des données (EDA) | KPI de nettoyage, aperçu du CSV, distribution de la cible, histogrammes par classe, heatmap **identique au notebook** + corrélations train |
+| 3. Analyse des corrélations | heatmap exacte de l'ipynb (cellule 41), classement train seul commenté, limites de Pearson et de la causalité |
 | 4. Processus Machine Learning | schéma et 12 étapes du dataset au déploiement, détail des 5 plis × 5 répétitions |
 | 5. Comparaison des modèles | tableau des scores réellement calculés, graphiques F1 / AUC / AP, justification du choix |
 | 6. Évaluation et métriques | matrices OOF et test annotées, métriques du pipeline sauvegardé, courbe de coût selon le seuil |
@@ -388,9 +388,11 @@ Ces vérifications sont aussi résumées dans l'application (pages 6, 9 et 10) e
 - Cohérence arithmétique corrigée dans le notebook : au seuil 0,21, le coût OOF vaut
   `5×3 + 117 = 132` ; le coût minimal **128** correspond au seuil 0,20 (`5×2 + 118`).
 - La matrice de corrélation **inclut la cible** (`cible (Oui = 1)`) : on y lit à la fois la
-  redondance entre variables et l'association de chacune avec la malveillance. Dans l'application,
-  elle est calculée sur les **416 lignes du train uniquement** (pages 2 et 3) ; la heatmap historique
-  du notebook, calculée avant le split, est signalée comme écart dans `docs/09_audit_findings.md`.
+  redondance entre variables et l'association de chacune avec la malveillance. Les pages 2 et 3
+  affichent désormais la **heatmap exacte du notebook** (cellule 41, image extraite byte-à-byte dans
+  `artefacts/matrice_correlation_eda.png`, calculée sur les 520 lignes avant split). Le classement
+  chiffré complémentaire est calculé sur les **416 lignes du train uniquement** ; les deux protocoles
+  sont distincts et signalés dans `docs/09_audit_findings.md`.
 
 **Formulaire de prédiction : trois cas lisibles**
 

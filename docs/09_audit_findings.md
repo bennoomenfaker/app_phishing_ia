@@ -81,7 +81,7 @@ Périmètre : notebook `notebook_ML_IA_confiance_numerique.ipynb`, `model.joblib
 
 **Correction recommandée.** Signaler explicitement ce tableau comme une comparaison historique, sans rôle dans la sélection.
 
-**Correction réellement appliquée.** Notebook non réécrit ; les corrélations train uniquement sont utilisées dans `docs/01`, et l'application affiche désormais sa heatmap sur les 416 lignes du train (pages 2 et 3). L'écart avec la cellule 41 reste signalé dans `docs/08`, partie 9.
+**Correction réellement appliquée.** Notebook non réécrit ; les corrélations train uniquement sont utilisées dans `docs/01`. À la demande de l'utilisateur, l'application affiche désormais la **heatmap exacte du notebook** (cellule 41) dans les pages 2 et 3, extraite byte-à-byte vers `artefacts/matrice_correlation_eda.png` (SHA-256 `631c485f…`). Le classement chiffré train seul reste affiché à part, sous un titre explicite. L'écart entre les deux protocoles reste signalé dans `docs/08`, partie 9.
 
 ### 7. Écart application / cahier des charges — CONTRAINTES
 

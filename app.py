@@ -153,6 +153,8 @@ EMPREINTE_CSV = hashlib.sha256(DATA_PATH.read_bytes()).hexdigest()
 MODEL_PATH = ROOT / "model.joblib"
 META_PATH = ROOT / "model_meta.json"
 NOTEBOOK = ROOT / CFG["notebook"]
+# Image exacte de la heatmap du notebook (cellule 41), extraite sans redessin.
+HEATMAP_NOTEBOOK = ROOT / "artefacts" / "matrice_correlation_eda.png"
 
 TARGET = CFG["target"]
 ORDER = CFG["order"]
@@ -1092,20 +1094,22 @@ def heatmap_cm(ax, cm, titre=""):
 def render_correlation_page(propre: pd.DataFrame):
     st.header("3) Analyse des corrélations")
     st.info("La cible est **incluse dans l'analyse statistique** (encodée `Oui = 1`) mais **jamais dans "
-            "X**. La matrice ci-dessous est calculée sur les **416 lignes du train uniquement**, après "
-            "le split : le test ne participe à aucune décision.")
+            "X**. Deux lectures distinctes sont affichées : la heatmap **identique au notebook** "
+            "(520 lignes, avant split) et le classement **train uniquement** (416 lignes), sans "
+            "intervention du test.")
+
+    st.subheader("Heatmap de référence — extraite du notebook")
+    st.caption("Cellule 41 du notebook, image exacte (SHA-256 `631c485f…`), jeu complet de 520 "
+               "messages, `cmap=coolwarm`, cible `Oui = 1`. Aucun recalcul.")
+    if HEATMAP_NOTEBOOK.exists():
+        st.image(str(HEATMAP_NOTEBOOK), **IMG_KW)
+    else:
+        st.warning("Heatmap du notebook introuvable : `artefacts/matrice_correlation_eda.png`.")
+
     corr = get_train_correlation(propre, EMPREINTE_CSV)
     col_cible = "cible (Oui = 1)"
 
-    fig, ax = plt.subplots(figsize=(9, 7.2))
-    sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
-                vmin=-1, vmax=1, linewidths=0.4, ax=ax)
-    ax.set_title("Pearson — 9 variables + cible (train, n = 416)", fontsize=11)
-    fig.tight_layout()
-    st.pyplot(fig)
-    plt.close(fig)
-
-    st.subheader("Classement des corrélations avec la cible")
+    st.subheader("Classement des corrélations avec la cible — TRAIN seul (416 lignes)")
     ranking = corr[col_cible].drop(col_cible).sort_values(key=abs, ascending=False)
 
     def intensite(r):
@@ -1137,8 +1141,10 @@ def render_correlation_page(propre: pd.DataFrame):
     st.markdown("""
     - `expediteur_connu` et `piece_jointe` sont binaires : leur coefficient est une **corrélation
       point-bisérielle**, à lire comme une différence de proportions, pas comme une pente.
-    - Le notebook historique calculait sa heatmap sur le jeu complet **avant** split ; l'application
-      affiche ici la version correcte, train uniquement. L'écart est documenté dans
+    - La heatmap affichée est celle du notebook, calculée sur le jeu complet **avant** split : elle
+      sert de référence visuelle fidèle à l'ipynb. Le classement chiffré ci-dessus est recalculé sur
+      le **train seul** (416 lignes) pour respecter la règle anti-fuite. Les deux protocoles sont
+      distincts et ne doivent pas être comparés directement ; l'écart est documenté dans
       `docs/09_audit_findings.md`.
     - Aucune variable n'a été supprimée à partir du test : c'est une règle absolue du protocole.
     """)
@@ -1594,26 +1600,32 @@ elif page_no == 2:
                "variable sépare les classes. Un fort chevauchement signifie qu'aucune variable seule ne "
                "suffit — d'où la combinaison par le modèle.")
 
-    st.subheader("Matrice de corrélation (variables + cible) — TRAIN uniquement")
+    st.subheader("Matrice de corrélation (variables + cible) — identique au notebook")
+    st.caption("Image extraite **byte-à-byte** de la cellule 41 du notebook "
+               "`notebook_ML_IA_confiance_numerique.ipynb` (SHA-256 `631c485f…`). Elle est calculée "
+               "sur le jeu complet de **520 messages**, avant le split : aucune valeur n'a été "
+               "recalculée ni redessinée ici.")
+    if HEATMAP_NOTEBOOK.exists():
+        st.image(str(HEATMAP_NOTEBOOK), **IMG_KW)
+    else:
+        st.warning("Heatmap du notebook introuvable : `artefacts/matrice_correlation_eda.png`.")
+    st.caption("**Lecture** : la dernière ligne/colonne est la cible encodée `Oui = 1`. Les liens les "
+               "plus nets sont `domaine_age_jours` (−0,329), `urgence_score` (+0,272), `nb_liens` "
+               "(+0,259) et `expediteur_connu` (−0,242) — valeurs lues dans la sortie du notebook. "
+               "**Corrélation ≠ causalité** : il s'agit d'une corrélation point-bisérielle, pas d'une preuve.")
+
+    st.subheader("Complément anti-fuite : corrélations sur le train seul (416 lignes)")
     COL_CIBLE = "cible (" + SEVERE + " = 1)"
     Xtr_eda, _, ytr_eda, _ = get_train_split(propre, EMPREINTE_CSV)
     df_corr = Xtr_eda[num_cols].copy()
     df_corr[COL_CIBLE] = (ytr_eda == SEVERE).astype(int).values
     corr = df_corr[num_cols + [COL_CIBLE]].corr(numeric_only=True)
-    fig, ax = plt.subplots(figsize=(8, 6.4))
-    sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0, ax=ax)
-    ax.set_title("Pearson — 416 lignes du train, cible incluse (" + SEVERE + " = 1)")
-    fig.tight_layout()
-    st.pyplot(fig)
-    plt.close(fig)
     top = corr[COL_CIBLE].drop(COL_CIBLE).sort_values(key=abs, ascending=False)
     st.dataframe(top.rename("corrélation_avec_cible (train)").to_frame(), **DF_KW)
     signaux = ", ".join(f"`{c} {v:+.3f}`" for c, v in top.head(4).items())
-    st.caption(f"**Signaux les plus liés à `Oui`** : {signaux}. Une valeur négative signifie que la "
-               "variable diminue quand le message est malveillant. **Corrélation ≠ causalité** : la "
-               "matrice mesure seulement un lien linéaire. Calculée sur le **train (416 lignes)** : "
-               "le test n'influence aucune décision. Le détail figure en page 3 ; l'écart avec la "
-               "heatmap historique du notebook est documenté dans `docs/09_audit_findings.md`.")
+    st.caption(f"**Signaux les plus liés à `Oui` sur le train** : {signaux}. Ce tableau, distinct de "
+               "l'image du notebook, montre que le test n'influence aucune décision. L'écart entre "
+               "les deux protocoles est documenté dans `docs/09_audit_findings.md`.")
 
 elif page_no == 3:
     render_correlation_page(propre)

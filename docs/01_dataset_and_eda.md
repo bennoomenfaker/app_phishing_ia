@@ -148,6 +148,11 @@ Dans le notebook, les corrélations entre explicatives sont **toutes faibles (|r
 - **Risque** : la heatmap « voit » les 104 lignes de test. Même si elle ne modifie pas les coefficients appris par le modèle, elle utilise des informations du jeu d'évaluation pour décrire les relations entre variables ; c'est une forme de fuite informationnelle dans le raisonnement exploratoire, et elle peut orienter le choix des caractéristiques à partir du test.
 - **Règle à appliquer** : fitter toute statistique descriptive sur le train, puis uniquement sur le train. Le tableau ci-dessus respecte cette règle et fait foi.
 - **Consigne** : **ne pas corriger le notebook** dans le cadre de ce travail ; signaler l'écart suffit.
+- **Affichage dans l'application** : à la demande de l'utilisateur, les pages 2 et 3 affichent la
+  **heatmap exacte du notebook** (cellule 41, image extraite sans redessin dans
+  `artefacts/matrice_correlation_eda.png`). Le classement chiffré reste calculé sur le train seul
+  et clairement séparé : l'image est la référence fidèle à l'ipynb, le tableau respecte la règle
+  anti-fuite. Les deux protocoles ne sont pas comparables directement.
 
 ---
 
