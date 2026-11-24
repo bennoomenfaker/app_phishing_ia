@@ -1,9 +1,0 @@
-{
-  "seuil": 0.21,
-  "seuil_bas": 0.2,
-  "seuil_haut": 0.88,
-  "modele": "LogisticRegression + log1p(age) + interactions, seuils appris sur le train (CV 5x5 repetee)",
-  "protocole": "cout FN=5 / FP=1, plateau de coût 0.20-0.22, triage 0.20/0.88 ; test lu une seule fois",
-  "validation": "AUC en validation croisée 0.909 +/- 0.003 ; AUC test 0.910 ; AP test 0.810",
-  "triage_test": "61/104 automatises, FN 1, FP 1, 43 revues humaines"
-}

@@ -104,7 +104,7 @@ CFG = {   'folder': 'app_phishing_ia',
                                         'piece_jointe': 1,
                                         'personnalisation_score': 9}},
                      {   'nom': '3. À surveiller',
-                         'attendu': 'À surveiller',
+                         'attendu': 'Non malveillant — zone de vigilance',
                          'valeurs': {   'heure_envoi': 10,
                                         'longueur_message': 330,
                                         'nb_liens': 1,
@@ -628,6 +628,7 @@ def predire(valeurs: dict, modele, meta: dict, seuil: float):
 
     # Classe binaire : toujours Oui ou Non, jamais une troisième classe.
     binaire = SEVERE if p_severe >= seuil else ORDER[0]
+    verdict = "Malveillant" if binaire == SEVERE else "Non malveillant"
 
     # Triage 3 zones appris sur le train : c'est une ACTION, pas une classe.
     #   P(Oui) >= seuil_haut (0,88)              -> 🔴 alerte prioritaire
@@ -646,7 +647,8 @@ def predire(valeurs: dict, modele, meta: dict, seuil: float):
         action = "Surveillance courante"
         niveau = "🟢 NORMAL — surveillance courante"
 
-    return {"classe": binaire, "binaire": binaire, "zone": zone, "action": action,
+    return {"classe": binaire, "binaire": binaire, "verdict": verdict,
+            "zone": zone, "action": action,
             "confiance": confiance, "p_severe": p_severe, "niveau": niveau,
             "probas": dict(zip(classes, proba))}
 
@@ -1263,15 +1265,15 @@ elif page.startswith("3"):
                 "**pas de décision automatique**.")
 
     st.subheader("Scénarios de test (3 exemples pédagogiques)")
-    st.caption("Trois cas attendus : 🔴 **malveillant**, 🟢 **non malveillant** et 🟠 **à surveiller** "
+    st.caption("Trois cas : **Malveillant**, **Non malveillant** et **Non malveillant — zone de vigilance** "
                "(P(Oui) entre " + format(SEUIL_BAS, ".2f") + " et " + format(SEUIL_HAUT, ".2f") +
-               "). Cliquez sur « Charger ce scénario » pour modifier le formulaire.")
+               "). Le verdict reste binaire ; la zone indique seulement la priorité de vérification. "
+               "Cliquez sur « Charger ce scénario » pour modifier le formulaire.")
     scols = st.columns(3)
     for i, sc in enumerate(CFG["scenarios"]):
         with scols[i]:
             r = predire(sc["valeurs"], modele, meta, SEUIL)
-            classe_txt = ("Oui — malveillant probable" if r["classe"] == SEVERE
-                          else "Non — légitime")
+            classe_txt = r["verdict"]
             st.markdown("**" + sc["nom"] + "**")
             st.caption("Attendu : " + sc["attendu"])
             st.write("Classe binaire : **" + classe_txt + "**")
@@ -1323,16 +1325,13 @@ elif page.startswith("3"):
             rows.append({
                 "Modèle": name,
                 "P(Oui) %": round(r["p_severe"] * 100, 2),
-                "Classe (seuil " + format(SEUIL, ".2f") + ")":
-                    "Oui — malveillant" if r["classe"] == SEVERE else "Non — légitime",
-                "Zone de triage": r["zone"],
-                "Action": r["action"],
+                "Verdict": r["verdict"],
             })
         st.markdown("### Comparaison des modèles (mêmes données formulaire)")
         st.dataframe(pd.DataFrame(rows), **DF_KW, hide_index=True)
-        st.caption("La **classe binaire** reste toujours `Oui` ou `Non` : c'est la décision au seuil "
-                   + format(SEUIL, ".2f") + ". La **zone de triage** indique seulement qui doit agir "
-                   "et à quelle priorité — ce n'est pas une troisième classe.")
+        st.caption("Verdict binaire au seuil " + format(SEUIL, ".2f") +
+                   " : **Malveillant** si P(Oui) ≥ seuil, sinon **Non malveillant**. "
+                   "La probabilité est une information complémentaire, pas un troisième résultat.")
 
         # matrices de confusion par modèle sur test
         from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
@@ -1452,19 +1451,14 @@ elif page.startswith("3"):
         )
 
         resultat = predire(saisi, modele, meta, SEUIL)
-        classe_txt = ("Oui — malveillant probable" if resultat["classe"] == SEVERE
-                      else "Non — légitime")
         st.markdown("### Verdict final (modèle retenu)")
-        st.write("**Classe binaire (seuil " + format(SEUIL, ".2f") + ") :** " + classe_txt)
-        st.write("**P(" + SEVERE + ") :** " + format(resultat["p_severe"], ".1%") +
-                 " | **Confiance :** " + format(resultat["confiance"], ".1%"))
-        st.write("**Zone de triage :** " + resultat["zone"] + " — " + resultat["action"])
-        if resultat["niveau"].startswith("🔴"):
-            st.error(resultat["niveau"])
-        elif resultat["niveau"].startswith("🟠"):
-            st.warning(resultat["niveau"])
+        if resultat["verdict"] == "Malveillant":
+            st.error("## 🚨 Malveillant")
         else:
-            st.success(resultat["niveau"])
+            st.success("## ✅ Non malveillant")
+        st.caption("Décision binaire au seuil " + format(SEUIL, ".2f") +
+                   " — P(Oui) = " + format(resultat["p_severe"], ".1%") +
+                   " · information complémentaire : " + resultat["zone"] + " — " + resultat["action"])
         with st.expander("Voir toutes les probabilités"):
             st.dataframe(pd.DataFrame([
                 {"Classe": c, "Probabilité %": round(float(p) * 100, 2)}
@@ -1717,7 +1711,24 @@ la validation croisée donne l'inverse (LR 0,785, SVM 0,784, RF 0,771). Il reste
                "interprétation lisible (coefficients + permutation). Le seuil 0,21 et le triage "
                "0,20 / 0,88 viennent du train, jamais du test.")
 
-    st.markdown(f"**Contrôle immédiat après validation — matrice de confusion (test, seuil {SEUIL:.2f})**")
+    st.markdown("**Matrice de confusion OOF — validation croisée 5×5 sur le train (seuil " +
+                format(SEUIL, ".2f") + ")**")
+    oof_cm = _META_DICT.get("validation", {}).get("matrice_oof_cv")
+    if oof_cm:
+        oof_df = pd.DataFrame(
+            [[oof_cm["TN"], oof_cm["FP"]], [oof_cm["FN"], oof_cm["TP"]]],
+            index=["Réel : Non", "Réel : Oui"],
+            columns=["Prédit : Non", "Prédit : Oui"],
+        )
+        st.dataframe(oof_df, **DF_KW)
+        st.caption("OOF = *out-of-fold* (« hors pli ») : chaque ligne du train est prédite par un modèle "
+                   "qui ne l'a jamais vue. Ici : TN " + str(oof_cm["TN"]) + " · FP " + str(oof_cm["FP"]) +
+                   " · FN " + str(oof_cm["FN"]) + " · TP " + str(oof_cm["TP"]) +
+                   ". On cherche à augmenter TP ; FN = 0 et FP = 0 en même temps exigerait une séparation parfaite (AUC = 1).")
+    else:
+        st.info("Matrice OOF non disponible dans `model_meta.json` : relancer le notebook principal pour la générer.")
+
+    st.markdown(f"**Évaluation finale — matrice de confusion (test, seuil {SEUIL:.2f})**")
     fig_cm, ax_cm = plt.subplots(figsize=(5.4, 4.0))
     heatmap_cm(ax_cm, S["cm_rf"], f"Modèle retenu — LR améliorée\nseuil {SEUIL:.2f}")
     fig_cm.tight_layout()

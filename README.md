@@ -3,6 +3,14 @@
 Mini-projet 3 — ISCAE Master VIC. Prototype pédagogique d'aide à la décision.
 Données synthétiques, aucune donnée personnelle. Décision humaine obligatoire.
 
+## Fichier à utiliser (version finale)
+
+- **Notebook de référence** : `notebook_ML_IA_confiance_numerique.ipynb` — il reste le notebook principal. Protocole conservé : split **80/20 stratifié**, entraînement et réglages sur le train, **validation croisée 5×5 répétée**, choix du modèle sur le train, puis évaluation **une seule fois** sur le test. Ajout : matrice de confusion **OOF** (train) en plus de la matrice test, avec explication OOF/FN/FP.
+- **Application de référence** : `app.py` — verdict binaire clair **Malveillant / Non malveillant**. La probabilité et la zone de triage (0,20 / 0,88) sont des informations secondaires, jamais une troisième classe.
+- **Dossier `work/`** : gardé comme **référence méthodologique** (validation croisée imbriquée, OOF sur 520 lignes, `predict()` sans seuil manuel). Les cellules redondantes de comptage de la cible y ont été retirées. Aucune suppression de fichier n'a été faite sans confirmation.
+
+`OOF` = *out-of-fold* (« hors pli ») : chaque ligne est prédite par un modèle qui ne l'a pas vue à l'entraînement. Au seuil 0,21, la matrice OOF du train est **TN 182 · FP 117 · FN 3 · TP 114** ; la matrice test finale est **TN 47 · FP 28 · FN 1 · TP 28**. `FN = 0` et `FP = 0` simultanément demanderaient une séparation parfaite (AUC = 1), ce qui n'est pas le cas ici (AUC ≈ 0,91).
+
 ## Lancer l'application
 
 ⚠️ Le dossier du projet contient un `:` dans son chemin
