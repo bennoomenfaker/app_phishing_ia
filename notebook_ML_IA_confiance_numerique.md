@@ -4151,6 +4151,24 @@ meta_app = {
     IC95 bootstrap — rappel [0.886 1.   ] | précision [0.368 0.636] | fausse alerte [0.262 0.481]
 
 
+## 9 ter. Comment la probabilité P(Oui) est calculée — et pourquoi le seuil vaut 0,21
+
+Le pipeline déployé (`model.joblib`) est une **régression logistique binaire**. Après `FeaturesPhishing`, imputation médiane et standardisation, elle calcule :
+
+```
+z = intercept + Σ(coef_i × variable_standardisée_i)
+P(Oui) = 1 / (1 + exp(-z))        (sigmoïde)
+```
+
+Coefficients lus dans le modèle sauvegardé (variables standardisées) : intercept **−0,764195** ; `log_age` −1,695200 ; `urgence_score` +0,966415 ; `nb_liens` +0,755597 ; `expediteur_connu` −0,328518 ; `piece_jointe` +0,184134 ; `personnalisation_score` +0,694086 ; `urg_x_inconnu` +0,475546 ; `liens_x_inconnu` +0,540464. `classes_ = ['Non', 'Oui']` : l'indice de `Oui` est déduit des classes, jamais supposé.
+
+Un coefficient positif augmente `P(Oui)` ; négatif la diminue. Dans l'application, `details_probabilite()` vérifie que `intercept + contributions` reconstitue `predict_proba()` à `1e-12` près.
+
+**Du score au verdict.** Le seuil n'est pas appris par la régression logistique : il est choisi sur les probabilités OOF du **train seul** (416 lignes). Coût `5·FN + FP` : **128 à 0,20** (FN 2, FP 118, minimum), plateau **0,20–0,22**, médiane retenue **0,21** (FN 3, FP 117, coût 132), coût 134 à 0,22 (FN 4, FP 114). Le test (104 lignes) n'intervient jamais dans ce choix : il est lu une seule fois à la fin.
+
+Les zones `Normal < 0,20`, `revue humaine 0,20–0,88` et `Alerte ≥ 0,88` sont une **action de triage secondaire**, pas une troisième classe : `P(Oui) = 28 %` donne bien `Oui` (malveillant) avec la zone VIGILANCE. Voir `docs/10_probability_and_learning.md`.
+
+
 ## 13. Évaluation détaillée des modèles
 
 L'accuracy mesure la proportion de prédictions correctes. La précision indique, pour une classe prédite, quelle part est correcte. Le rappel mesure la part des observations réelles d'une classe retrouvées. Le F1-score combine précision et rappel.

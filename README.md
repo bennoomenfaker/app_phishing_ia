@@ -55,19 +55,31 @@ Si toutes les dépendances sont déjà installées pour l'utilisateur courant,
 
 ## Pages de l'application
 
-Navigation simplifiée en cinq pages :
+Navigation en douze entrées : les cinq pages historiques sont conservées et sept vues nouvelles
+couvrent l'intégralité du pipeline.
 
 | Page | Contenu |
 |---|---|
-| 1. Contexte & Problématique | contexte général, problématique, objectif de pré-dépistage, questions de recherche, erreur la plus coûteuse |
-| 2. EDA des données | KPI de nettoyage, aperçu du CSV, distribution de la cible, histogrammes par classe, corrélation avec la cible |
-| 3. Prédiction / Verdict | 3 scénarios, formulaire, verdict binaire, probabilité, zone de triage secondaire, explication du verdict |
-| 4. Explication des attributs | dictionnaire des variables, définition / échelle / rôle, moyennes et corrélations calculées à l'ouverture |
-| 5. Guide de présentation | processus ML, AUC / AP / OOF, coût `5·FN + FP`, matrices OOF et test, déploiement Streamlit, points clés de soutenance |
+| 1. Accueil / Vue d'ensemble | contexte général, problématique, objectif de pré-dépistage, questions de recherche, erreur la plus coûteuse |
+| 2. Exploration des données (EDA) | KPI de nettoyage, aperçu du CSV, distribution de la cible, histogrammes par classe, corrélation **train uniquement** |
+| 3. Analyse des corrélations | heatmap train, classement commenté variable par variable, limites de Pearson et de la causalité |
+| 4. Processus Machine Learning | schéma et 12 étapes du dataset au déploiement, détail des 5 plis × 5 répétitions |
+| 5. Comparaison des modèles | tableau des scores réellement calculés, graphiques F1 / AUC / AP, justification du choix |
+| 6. Évaluation et métriques | matrices OOF et test annotées, métriques du pipeline sauvegardé, courbe de coût selon le seuil |
+| 7. Prédiction d'un message | 3 scénarios synchronisés, formulaire à 9 champs, verdict binaire, probabilité, décomposition réelle et zone de triage secondaire |
+| 8. Explication des attributs | dictionnaire des variables, définition / échelle / rôle, moyennes et corrélations calculées à l'ouverture |
+| 9. À propos / Limites | nature synthétique des données, périmètre d'aide à la décision, traçabilité des artefacts |
+| 10. Guide de présentation | processus ML, AUC / AP / OOF, coût `5·FN + FP`, matrices, points clés de soutenance |
+| 11. 🎓 Mode présentation académique | 14 étapes navigables, pensées pour une projection en soutenance |
+| 12. 🎓 Comprendre le Machine Learning | apprentissage, vrais coefficients, sigmoïde et `P(Oui)`, seuil, OOF, test final et lien avec le formulaire |
 
-Les matrices OOF et test sont présentées en **tableaux annotés** dans la page 5, avec le décompte
+Les matrices OOF et test sont présentées en **tableaux annotés** dans la page 6, avec le décompte
 `TN / FP / FN / TP` et le coût métier. Les graphiques de la page 2 (cible, histogrammes, corrélation)
-sont recalculés à l'ouverture depuis le CSV — aucune valeur n'est saisie à la main.
+sont recalculés à l'ouverture depuis le CSV — aucune valeur n'est saisie à la main. Le mode
+présentation (page 11) ne réentraîne rien : il lit les artefacts et le pipeline sauvegardé.
+Le module pédagogique (page 12) affiche les coefficients réels de `model.joblib`, recalcule
+`P(Oui)` étape par étape (`details_probabilite()`) et vérifie l'égalité avec `predict_proba()`.
+Le détail est dans `docs/10_probability_and_learning.md`.
 
 ## Explication des variables
 
@@ -180,12 +192,12 @@ Plan imposé :
 8. Jeu de données et variables (524 lignes brutes, 520 propres, 374 Non / 146 Oui)
 9. Nettoyage et qualité (4 doublons, 10 NA imputées par la médiane du train)
 10. Analyse exploratoire (âge du domaine, urgence, liens, expéditeur inconnu)
-11. Matrice de corrélation AVEC la cible ( domaine_age_jours −0,329 ; urgence_score +0,272 ;
-    nb_liens +0,259 ; expediteur_connu −0,242 )
+11. Matrice de corrélation AVEC la cible, calculée sur le TRAIN ( domaine_age_jours −0,322 ;
+    urgence_score +0,285 ; expediteur_connu −0,278 ; nb_liens +0,244 )
 12. Préparation et séparation des données (416 train / 104 test, seed 42)
 13. Modèles comparés et protocole (LR, Random Forest, SVM RBF, LR améliorée ; CV 5-fold sur le train)
 14. Résultats (LR améliorée : AUC 0,910 ; AP 0,810 ; Brier 0,123 ; F1 macro 0,712 au seuil 0,21 ;
-    F1 macro CV 0,814)
+    F1 macro OOF 5×5 = 0,808 au seuil 0,50)
 15. Matrice de confusion et coût métier (TN 47, FP 28, FN 1, TP 28 ; coût 5·FN + FP = 33)
 16. Importance des variables et analyse des erreurs (permutation, F1 macro)
 17. Triage 3 zones, limites et perspectives (61/104 automatisés, 1 FN, 1 FP, 43 en revue)
@@ -212,7 +224,7 @@ Points à ne pas rater :
 4. Comparer avec `Presentation_Projet_Phishing_IA.pptx`, généré par `scripts/make_pptx.py` :
    c'est la référence chiffrée.
 
-## Formulaire : trois cas distincts (page 3)
+## Formulaire : trois cas distincts (page 7)
 
 Les trois scénarios chargibles donnent trois verdicts différents, calculés sur
 **P(Oui)** (et non sur la confiance globale), avec le modèle amélioré et les seuils appris :
@@ -251,7 +263,8 @@ recalculés automatiquement.
 
 | Fichier | Rôle |
 |---|---|
-| `app.py` | Interface Streamlit : contexte, EDA, prédiction, explication des attributs, guide de soutenance |
+| `app.py` | Interface Streamlit : 11 entrées (contexte, EDA, corrélations, processus, comparaison, évaluation, prédiction, attributs, limites, guide, mode présentation) |
+| `docs/01_dataset_and_eda.md` … `docs/09_audit_findings.md` | Documentation scientifique et rapport d'audit (9 fichiers) |
 | `model.joblib` | Pipeline scikit-learn entraîné (régression logistique améliorée) |
 | `model_meta.json` | Seuils appris, bornes des champs, métriques, triage, citation |
 | `dataset_phishing_ia - dataset_phishing_ia.csv` | Jeu de données synthétique (copie locale) |
@@ -267,25 +280,33 @@ recalculés automatiquement.
 
 ## Validation croisée — critère de sélection du modèle
 
-La validation croisée est calculée **sur le train seul** (416 messages, `StratifiedKFold` 5 plis,
-`random_state=42`). C'est elle qui désigne le modèle, pas le test :
+La validation croisée est calculée **sur le train seul** (416 messages). Deux protocoles distincts
+coexistent dans les artefacts et ne doivent pas être confondus :
 
-| Modèle | F1 macro CV (moyenne des 5 plis) |
-|---|---:|
-| **Régression logistique améliorée** | **0,814** |
-| Random Forest | 0,791 |
-| Régression logistique | 0,785 |
-| SVM RBF | 0,784 |
-| KNN (k=7) | 0,727 |
-| Dummy (classe majoritaire) | 0,418 |
+**A. CV 5-fold simple, `StratifiedKFold(5, shuffle=True, random_state=42)` — sorties réelles du notebook :**
 
-La CV 5-fold est appliquée à **tous** les modèles, y compris la LR améliorée. Le Dummy n'est pas un
-candidat : c'est le **plancher de référence** (0,418, aucun phishing détecté).
+| Modèle | F1 macro (moyenne ± écart-type) | Accuracy CV |
+|---|---:|---:|
+| Random Forest | **0,791 ± 0,051** | 0,839 |
+| Régression logistique | 0,785 ± 0,067 | 0,810 |
+| SVM RBF | 0,784 ± 0,018 | 0,815 |
 
-La LR améliorée est donc **le meilleur modèle en validation croisée**, et aussi le meilleur en
-AUC/AP (0,910 / 0,810) avec le coût métier minimal (33). Le test de 104 messages ne sert qu'au
-contrôle final. Ces valeurs sont récapitulées dans l'app (page 5, **Guide de présentation**) et dans la
-diapositive 14 du PPTX.
+**B. CV 5×5 répétée (graines 42–46) de la section 9 bis, probabilités OOF moyennées :**
+
+| Modèle | F1 macro OOF au seuil 0,50 | F1 macro moyen des 25 plis |
+|---|---:|---:|
+| **Régression logistique améliorée (retenue)** | **0,808** | 0,807 ± 0,047 |
+
+La valeur **0,814** anciennement annoncée n'est reproductible depuis aucun artefact. Les valeurs
+historiques `KNN = 0,727` et `Dummy = 0,418` (ou `0,419` selon `model_meta.json`) sont déclarées dans
+les métadonnées mais non recomputées dans les cellules actuelles : elles sont signalées comme telles
+dans `docs/03_model_comparison.md` et `docs/09_audit_findings.md`.
+
+La LR améliorée est retenue pour sa meilleure AUC/AP (0,910 / 0,810), son coût métier minimal (33)
+et son interprétabilité — **pas** en comparant un F1 OOF 5×5 à un F1 CV 5-fold d'un autre modèle.
+Le test de 104 messages ne sert qu'au contrôle final. Ces valeurs sont récapitulées dans l'app
+(pages 5, 6 et 10) et discutées dans la diapositive 14 du PPTX, dont les chiffres historiques sont
+signalés dans le rapport d'audit.
 
 ## Protocole reproductible
 
@@ -314,11 +335,11 @@ diapositive 14 du PPTX.
   `[0,262 ; 0,481]`. Ces intervalles larges rappellent la petite taille de l'échantillon.
 - Dans le PPTX : R², MAE et MSE sont calculés entre la probabilité `P(Oui)` et la vérité encodée
   0/1 (MSE = score de Brier) puis interprétés ; ils mesurent la **calibration**, la décision se juge
-  sur la matrice de confusion au seuil appris. L'app affiche le Brier Score (0,123) en page 5.
+  sur la matrice de confusion au seuil appris. L'app affiche le Brier Score (0,123) en page 6.
 
 ## Matrice de confusion de la validation croisée
 
-La page 5 affiche aussi la matrice de confusion de la **validation croisée**, calculée sur
+La page 6 affiche aussi la matrice de confusion de la **validation croisée**, calculée sur
 le train seul (chaque message est prédit par un modèle qui ne l'a pas vu), avec les probabilités
 moyennées sur 5 répétitions, au seuil `0,21` :
 
@@ -333,7 +354,7 @@ seule réalisation. Les deux matrices doivent être lues ensemble.
 
 ### FN et FP peuvent-ils atteindre 0 ?
 
-La page 5 explique l'arbitrage seuil / triage. Réponse honnête :
+Les pages 6 et 10 expliquent l'arbitrage seuil / triage. Réponse honnête :
 
 - **FN = 0** est atteignable en baissant le seuil à `0,07` : tous les malveillants sont
   détectés, mais les fausses alertes explosent (**48 FP**) ;
@@ -352,8 +373,8 @@ La page 5 explique l'arbitrage seuil / triage. Réponse honnête :
 
 ## Vérifications et traçabilité
 
-Ces vérifications sont aussi résumées dans l'application (page 5, **Guide de présentation**) et dans le PPTX
-(diapositive 20).
+Ces vérifications sont aussi résumées dans l'application (pages 6, 9 et 10) et dans le rapport
+`docs/09_audit_findings.md`.
 
 **Notebook : un seul exemplaire, réellement exécuté**
 
@@ -361,13 +382,15 @@ Ces vérifications sont aussi résumées dans l'application (page 5, **Guide de 
   (`cmp` → IDENTIQUE) : **90 cellules, 0 erreur**.
 - `model.joblib` identique ; `model_meta.json` ne change que des libellés (mêmes seuils, mêmes
   métriques).
-- Le terme **OOF** est conservé et explicité (notebook page 9 bis, application page 5) : il s'agit
-  d'une méthode de production de prédictions hors pli, pas d'une métrique. Résultats inchangés :
-  **AUC 0,9092 ± 0,0031**, seuil **0,21**, test **AUC 0,910 / AP 0,810 / Brier 0,123**.
+- Le terme **OOF** est conservé et explicité (notebook section 9 bis, application pages 5, 6 et 10) :
+  il s'agit d'une méthode de production de prédictions hors pli, pas d'une métrique. Résultats
+  inchangés : **AUC 0,9092 ± 0,0031**, seuil **0,21**, test **AUC 0,910 / AP 0,810 / Brier 0,123**.
 - Cohérence arithmétique corrigée dans le notebook : au seuil 0,21, le coût OOF vaut
   `5×3 + 117 = 132` ; le coût minimal **128** correspond au seuil 0,20 (`5×2 + 118`).
 - La matrice de corrélation **inclut la cible** (`cible (Oui = 1)`) : on y lit à la fois la
-  redondance entre variables et l'association de chacune avec la malveillance.
+  redondance entre variables et l'association de chacune avec la malveillance. Dans l'application,
+  elle est calculée sur les **416 lignes du train uniquement** (pages 2 et 3) ; la heatmap historique
+  du notebook, calculée avant le split, est signalée comme écart dans `docs/09_audit_findings.md`.
 
 **Formulaire de prédiction : trois cas lisibles**
 
