@@ -1984,23 +1984,24 @@ La corrélation de Pearson mesure une association linéaire entre variables num�
 **4. La couleur** : rouge = positif, bleu = négatif, gris clair = proche de 0. Plus la couleur est intense, plus le lien est fort.
 
 ### Ce que montre ton graphique
-- Les cases hors diagonale sont gris clair : valeurs réelles entre **-0,060 et +0,067**. Les 9 variables sont donc pratiquement indépendantes.
-- Corrélations les plus fortes (mais très faibles) : `expediteur_connu`/`domaine_age_jours` (**+0,067**), `urgence_score`/`expediteur_connu` (**+0,063**), `fautes_langue`/`nb_liens` (**-0,060**).
-- Avec la cible (`Oui = 1`), les liens sont plus nets : `domaine_age_jours` **-0,329**, `urgence_score` **+0,272**, `nb_liens` **+0,259**, `expediteur_connu` **-0,242**.
+- **Entre variables explicatives** (tout sauf la cible), les cases restent gris clair : valeurs réelles entre **-0,060 et +0,067**. Les 9 variables sont donc pratiquement indépendantes.
+- Corrélations les plus fortes entre explicatives (mais très faibles) : `expediteur_connu`/`domaine_age_jours` (**+0,067**), `urgence_score`/`expediteur_connu` (**+0,063**), `fautes_langue`/`nb_liens` (**-0,060**).
+- **La cible est la dernière ligne et la dernière colonne** (`cible (Oui = 1)`) : on y lit `domaine_age_jours` **-0,329**, `urgence_score` **+0,272**, `nb_liens` **+0,259**, `expediteur_connu` **-0,242**.
 - Cette matrice ne mesure que des liens linéaires : le **SVM RBF** peut capter des interactions non linéaires qu'elle ne montre pas.
 
 ### Conclusion
-- **Pas de redondance / pas de multicolinéarité forte** : aucune variable n’en duplique une autre, on peut les garder.
+- **Pas de redondance / pas de multicolinéarité forte** entre explicatives : aucune variable n’en duplique une autre, on peut les garder.
 - **Chaque variable apporte une information distincte**.
-- Cela ne veut pas dire qu’elles sont inutiles pour prédire `message_malveillant` : cette matrice ne contient pas la cible.
+- **La cible figure dans la matrice** (dernière ligne / colonne) : on lit dans le même graphique la redondance entre variables et l'association de chacune avec la malveillance.
 
 ### Limites
-- **Cible absente** : pour voir le lien avec la malveillance, il faut aussi regarder la relation avec `message_malveillant` (boxplots/moyennes par classe).
+- **Corrélation ≠ causalité** : un lien fort ne prouve pas qu'une variable *cause* le phishing.
 - **Pearson = lien linéaire uniquement** ; un lien courbe peut donner `r ≈ 0`.
-- **Variables binaires** (`expediteur_connu`, `piece_jointe`) : lecture approximative avec Pearson.
+- **Variables binaires** (`expediteur_connu`, `piece_jointe`) : lecture approximative avec Pearson (corrélation point-bisérielle).
+- **Encodage de la cible** : `Oui = 1` sert uniquement à calculer et visualiser la corrélation ; la cible n'entre jamais dans `X` (règle anti-fuite).
 - Une matrice très « vide » peut aussi refléter un dataset synthétique ; à signaler dans les limites si c’est le cas.
 
-> Phrase rapport : « Toutes les corrélations entre variables explicatives sont proches de zéro (|r| ≤ 0,07) : les variables sont indépendantes, sans redondance, et peuvent toutes être conservées pour la modélisation. »
+> Phrase rapport : « Toutes les corrélations entre variables explicatives sont proches de zéro (|r| ≤ 0,07) : les variables sont indépendantes, sans redondance, et peuvent toutes être conservées pour la modélisation. La cible, ajoutée en dernière ligne, montre les associations attendues (-0,33 pour l'âge du domaine, +0,27 pour l'urgence). »
 
 
 
@@ -2399,7 +2400,8 @@ plt.show()
 
 **Comment lire** : une barre rouge (r > 0) signifie que la variable augmente quand le message est malveillant ; une barre bleue (r < 0) qu'elle diminue. La longueur donne la force du lien linéaire.
 
-** Attention methodologique** : `expediteur_connu` et `piece_jointe` sont des variables **binaires 0/1**. Leur coefficient est une **corrélation point-bisérielle** (cas particulier de Pearson) : il se lit comme une différence de proportion entre les deux classes, pas comme une pente. Corrélation ≠ causalité, et rien ici ne prouve qu'une variable *cause* le phishing. Ce complément répond à la limite « cible absente de la heatmap ».
+**⚠️ Attention méthodologique** : `expediteur_connu` et `piece_jointe` sont des variables **binaires 0/1**. Leur coefficient est une **corrélation point-bisérielle** (cas particulier de Pearson) : il se lit comme une différence de proportion entre les deux classes, pas comme une pente. Corrélation ≠ causalité, et rien ici ne prouve qu'une variable *cause* le phishing. La cible figure déjà dans la matrice de la cellule précédente (dernière ligne / colonne) ; ce graphique en détaille l'association, variable par variable.
+
 
 ### Comment lire le tableau des moyennes par classe
 
@@ -4986,7 +4988,7 @@ print("model.joblib / model_meta.json synchronisés avec le notebook.")
 
 ```
 
-    Modèle et résultats sauvegardés dans : /tmp/opencode/nbfix2/artefacts
+    Modèle et résultats sauvegardés dans : /tmp/opencode/nbfix3/artefacts
     model.joblib / model_meta.json synchronisés avec le notebook.
 
 
