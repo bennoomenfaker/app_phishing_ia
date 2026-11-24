@@ -38,7 +38,7 @@ Si toutes les dépendances sont déjà installées pour l'utilisateur courant,
 | 3. Prédiction / Verdict | 3 scénarios, formulaire, comparaison des modèles, matrice de confusion CV, FN/FP par seuil, explication du verdict |
 | 4. Notebook | notebook complet, téléchargeable et affiché |
 | 5. Soutenance (12 points) | plan de présentation : solutions existantes, problème, schéma global, données, justification du modèle, corrélation, résultats, **R² / MAE / MSE**, triage 3 zones, test final, limites et perspectives |
-| 6. Présentation (soutenance) | la présentation complète en **Markdown** (18 parties + glossaire des métriques), **illustrée avec les graphiques du PPTX**, téléchargement du `.pptx` et du notebook |
+| 6. Présentation (soutenance) | la présentation complète en **Markdown** (18 parties + glossaire des métriques + **annexe A** `personnalisation_score` + **annexe B** vérifications et traçabilité), **illustrée avec les graphiques du PPTX**, téléchargement du `.pptx` et du notebook |
 
 Toutes les matrices de confusion (pages 2, 3 et 5) sont des **graphiques annotés** : chaque case
 affiche **TN / FP / FN / TP**, son **effectif** et son **pourcentage**. Aucune matrice n'est affichée
@@ -73,12 +73,23 @@ dans le notebook (cellule **Dictionnaire détaillé des attributs**) et dans le 
 Le score illustre la personnalisation, pas la malveillance : les banques personnalisent aussi.
 Ce qui départage, c'est la combinaison avec l'âge du domaine, l'urgence et l'expéditeur inconnu.
 
+| Score | Interprétation |
+|---|---|
+| 0–2 | Très peu personnalisé |
+| 3–4 | Faiblement personnalisé |
+| 5–7 | Moyennement personnalisé |
+| 8–10 | Fortement personnalisé |
+
+Bornes **illustratives** : l'échelle réelle du fichier a été vérifiée dans le code (minimum 0,
+maximum 10, moyenne 4,98, médiane 5). Messages normaux : moyenne **4,82** ; messages malveillants :
+moyenne **5,40** ; corrélation avec la cible **r ≈ +0,10**.
+
 ## Générer la présentation PowerPoint et le Markdown du notebook
 
 Les deux commandes se lancent depuis le dossier du projet, sans réseau.
 
 ```bash
-# 1. Présentation PowerPoint (18 diapositives, images de artefacts/pptx/)
+# 1. Présentation PowerPoint (20 diapositives : 18 + 2 annexes, images de artefacts/pptx/)
 python3 scripts/make_pptx.py
 # → Presentation_Projet_Phishing_IA.pptx
 
@@ -98,6 +109,85 @@ python3 -m nbconvert --to notebook --execute --inplace \
   --ExecutePreprocessor.timeout=600 notebook_ML_IA_confiance_numerique.ipynb
 ```
 
+## Créer la présentation avec Copilot (GPT-5 Thinking, compte étudiant)
+
+### Pourquoi passer par le Markdown
+
+Copilot (Word / PowerPoint, compte étudiant) **ne lit pas les fichiers `.ipynb`**. Il lit très bien
+le Markdown, le texte et le JSON. Le dossier fournit donc déjà la version texte du notebook :
+
+| Fichier à joindre à Copilot | Ce qu'il contient | Indispensable ? |
+|---|---|---|
+| `notebook_ML_IA_confiance_numerique.md` | **tout le notebook en texte** : explications, code, sorties, tableaux | oui |
+| `README.md` | consignes, pages de l'app, protocole, tableau FN/FP | oui |
+| `model_meta.json` | seuils appris (0,21 / 0,20 / 0,88), métriques, triage | oui |
+| `artefacts/seuil_phishing_ia.json` | protocole de choix du seuil (plateau 0,20–0,22) | recommandé |
+| `artefacts/comparaison_modeles_phishing_ia.csv` | résultats chiffrés par modèle | recommandé |
+| `Presentation_Projet_Phishing_IA.pptx` | la version de référence à imiter (20 diapositives) | facultatif |
+
+Si le `.md` est absent ou périmé, le régénérer (commande donnée plus haut) :
+
+```bash
+python3 -m nbconvert --to markdown notebook_ML_IA_confiance_numerique.ipynb
+```
+
+### Prompt à copier-coller dans Copilot
+
+```text
+Tu es assistant de soutenance pour un Master Veille et Intelligence Compétitive (ESEN–ISCAE).
+À partir des fichiers joints (notebook en Markdown, README, model_meta.json), crée une
+présentation PowerPoint de 20 diapositives, en français, pour un jury non technique.
+
+Règles absolues :
+- N'invente AUCUN chiffre. Utilise uniquement ceux des fichiers joints.
+- Une idée par diapositive, 5 puces maximum, pas de paragraphe dense.
+- Charte : fond blanc, titres bleu marine, cartes bleu clair / gris, accent ambre.
+- Chaque diapositive a des notes oratoires de 3 phrases : « À dire », « Pourquoi », « Question jury ».
+- Ne jamais écrire « slide » dans le texte affiché.
+
+Plan imposé :
+1. Page de garde (titre, Master VIC, ESEN–ISCAE, mention données synthétiques)
+2. Contexte général (phishing, IA générative, confiance numérique)
+3. Problématique et objectifs
+4. Solutions existantes et limites (SPF/DKIM/DMARC, filtres ML, réputation d'URL, LLM, suites commerciales)
+5. Approche retenue et valeur ajoutée
+6. Architecture globale (CSV → nettoyage → EDA → split 80/20 → pipeline → CV → test → app)
+7. Processus ML en 10 étapes (le test n'apparaît qu'à l'étape 8)
+8. Jeu de données et variables (524 lignes brutes, 520 propres, 374 Non / 146 Oui)
+9. Nettoyage et qualité (4 doublons, 10 NA imputées par la médiane du train)
+10. Analyse exploratoire (âge du domaine, urgence, liens, expéditeur inconnu)
+11. Matrice de corrélation AVEC la cible ( domaine_age_jours −0,329 ; urgence_score +0,272 ;
+    nb_liens +0,259 ; expediteur_connu −0,242 )
+12. Préparation et séparation des données (416 train / 104 test, seed 42)
+13. Modèles comparés et protocole (LR, Random Forest, SVM RBF, LR améliorée ; CV 5-fold sur le train)
+14. Résultats (LR améliorée : AUC 0,910 ; AP 0,810 ; Brier 0,123 ; F1 macro 0,712 au seuil 0,21 ;
+    F1 macro CV 0,814)
+15. Matrice de confusion et coût métier (TN 47, FP 28, FN 1, TP 28 ; coût 5·FN + FP = 33)
+16. Importance des variables et analyse des erreurs (permutation, F1 macro)
+17. Triage 3 zones, limites et perspectives (61/104 automatisés, 1 FN, 1 FP, 43 en revue)
+18. Conclusion et questions
+19. Annexe A — personnalisation_score (0–10 ; exemples générique/personnalisé ;
+    moyennes 4,82 vs 5,40 ; r ≈ +0,10 ; ne prouve rien seule)
+20. Annexe B — vérifications et traçabilité (notebook unique réexécuté, 89 cellules, 0 erreur ;
+    3 cas du formulaire ; FN/FP par seuil et triage zéro erreur 0,07/0,98 → 74/104 en revue)
+
+Points à ne pas rater :
+- FN = phishing manqué = erreur critique ; FP = fausse alerte = coût analyste.
+- Le seuil 0,21 vient du train (plateau de coût 0,20–0,22), jamais du test.
+- FN = 0 et FP = 0 avec un seuil unique est impossible ; le triage 0,07/0,98 donne 0 FN / 0 FP
+  sur la partie automatisée mais envoie 74 messages sur 104 en revue humaine.
+- R², MAE, MSE sont affichés parce que le cahier des charges les demande, mais ne pilotent pas
+  la décision.
+```
+
+### Contrôles après génération
+
+1. Vérifier que chaque chiffre du PPTX se retrouve dans le `.md` ou `model_meta.json`.
+2. Vérifier la diapositive 11 : la cible doit être **dans** la matrice (dernière ligne/colonne).
+3. Vérifier la diapositive 20 : les deux tableaux (3 cas, FN/FP) doivent être présents.
+4. Comparer avec `Presentation_Projet_Phishing_IA.pptx`, généré par `scripts/make_pptx.py` :
+   c'est la référence chiffrée.
+
 ## Formulaire : trois cas distincts (page 3)
 
 Les trois scénarios chargibles donnent trois verdicts différents, calculés sur
@@ -116,11 +206,11 @@ comparaison des modèles affiche les deux séparément : `P(Oui) %`, `Classe (se
 
 Règle affichée dans l'application :
 
-- `P(Oui) < 0,20` → 🟢 NORMAL (rappel OOF ≥ 98 %) ;
+- `P(Oui) < 0,20` → 🟢 NORMAL (rappel en validation croisée ≥ 98 %) ;
 - `0,20 ≤ P(Oui) < 0,88` → 🟠 VIGILANCE / revue humaine (cas ambigus) ;
-- `P(Oui) ≥ 0,88` → 🔴 ALERTE (précision OOF ≥ 85 %).
+- `P(Oui) ≥ 0,88` → 🔴 ALERTE (précision en validation croisée ≥ 85 %).
 
-La décision **binaire** utilise le seuil coût `0,21` (`5·FN + FP`, plateau OOF
+La décision **binaire** utilise le seuil coût `0,21` (`5·FN + FP`, plateau de coût en validation croisée
 0,20–0,22 en validation croisée répétée 5×5). Les seuils ne sont plus fixés à la main :
 ils sont **appris sur le train seul**. Tout verdict reste une aide à la décision :
 validation humaine obligatoire, aucune suppression automatique.
@@ -142,7 +232,7 @@ les graphiques et la matrice de corrélation sont recalculés automatiquement.
 | `model_meta.json` | Seuils appris, bornes des champs, métriques, triage, citation |
 | `dataset_phishing_ia - dataset_phishing_ia.csv` | Jeu de données synthétique (copie locale) |
 | `notebook_ML_IA_confiance_numerique.ipynb` | Notebook de référence, téléchargeable depuis l'app |
-| `Presentation_Projet_Phishing_IA.pptx` | Présentation 18 diapositives, notes orales, images issues du notebook exécuté |
+| `Presentation_Projet_Phishing_IA.pptx` | Présentation 20 diapositives (18 + 2 annexes), notes orales, images issues du notebook exécuté |
 | `scripts/make_pptx.py` | Régénère le PPTX depuis les images de `artefacts/pptx/` |
 | `notebook_ML_IA_confiance_numerique.md` | Version Markdown du notebook exécuté (avec ses images) |
 | `1.ipynb` | Copie de travail du notebook, identique à la version de référence |
@@ -178,14 +268,14 @@ diapositive 14 du PPTX.
 - `drop_duplicates()`, suppression de `date` et `semaine` (aucune justification métier),
   cible jamais incluse dans `X`.
 - Split 80/20 stratifié, `random_state=42` ; validation croisée **StratifiedKFold 5×5
-  répétée sur le train uniquement** : AUC OOF `0,909 ± 0,003`, AP OOF `0,812 ± 0,003`.
+  répétée sur le train uniquement** : AUC en validation croisée `0,909 ± 0,003`, AP `0,812 ± 0,003`.
 - **Modèle retenu, identique dans le notebook et dans l'app** :
   `log1p(domaine_age_jours)` + interactions `urgence × inconnu` et `liens × inconnu`,
   retrait de `heure_envoi`, `longueur_message` et `fautes_langue` (bruit), puis
   imputation médiane, `StandardScaler` et `LogisticRegression(class_weight="balanced")`.
 - Le Random Forest (300 arbres, `min_samples_leaf=2`) reste affiché comme **référence
   historique** dans les tableaux comparatifs ; il ne sert plus à la décision.
-- Seuil binaire : plateau de coût OOF minimal `5·FN + FP` entre **0,20 et 0,22**,
+- Seuil binaire : plateau de coût minimal `5·FN + FP` en validation croisée, entre **0,20 et 0,22**,
   médiane **0,21**. Sensibilité : `c_FN = 3` → 0,47 ; `c_FN = 10` → 0,20.
 - Résultats sur le test de 104 messages (29 `Oui`) : **AUC 0,910**, **AP 0,810**,
   Brier `0,123` ; au seuil `0,21` : `TN = 47, FP = 28, FN = 1, TP = 28`,
@@ -235,6 +325,50 @@ La page 3 affiche un tableau de seuils sur le test. Réponse honnête :
 - **zéro erreur automatisée est possible** avec un triage `0,07 / 0,98` : 0 FN et 0 FP sur la
   partie automatique, mais **74 messages sur 104 (71 %) partent en revue humaine** et le
   système n'automatise plus que 30 cas. C'est le vrai arbitrage : automatisation contre erreurs.
+
+## Vérifications et traçabilité
+
+Ces vérifications sont aussi affichées dans l'application (page 6, **annexe B**) et dans le PPTX
+(diapositive 20).
+
+**Notebook : un seul exemplaire, réellement exécuté**
+
+- Le notebook du projet est **identique octet pour octet** au notebook réexécuté de zéro
+  (`cmp` → IDENTIQUE) : **89 cellules, 0 erreur**.
+- `model.joblib` identique ; `model_meta.json` ne change que des libellés (mêmes seuils, mêmes
+  métriques).
+- « OOF » supprimé partout (notebook, application, présentation) → « validation croisée ».
+  Résultats inchangés : **AUC 0,9092 ± 0,0031**, seuil **0,21**, test **AUC 0,910 / AP 0,810 /
+  Brier 0,123**.
+- La matrice de corrélation **inclut la cible** (`cible (Oui = 1)`) : on y lit à la fois la
+  redondance entre variables et l'association de chacune avec la malveillance.
+
+**Formulaire de prédiction : trois cas lisibles**
+
+| Modèle (même saisie) | P(Oui) | Classe binaire | Zone |
+|---|---:|---|---|
+| Modèle retenu (joblib) | 28,19 % | Oui — malveillant | 🟠 VIGILANCE |
+| Régression logistique | 44,57 % | Oui — malveillant | 🟠 VIGILANCE |
+| Random Forest | 20,30 % | Non — légitime | 🟠 VIGILANCE |
+| KNN / SVM RBF | 0 % / 17,14 % | Non — légitime | 🟢 NORMAL |
+
+Scénarios : **1 → 🟢 Non**, **2 → 🔴 Oui malveillant (100 %)**, **3 → 🟠 Oui + revue humaine
+(47,1 %)**. La classe ne vaut jamais « À vérifier » : elle est `Oui` / `Non`, le triage est une
+colonne séparée.
+
+**FN / FP = 0 sur le test : les chiffres, sans promesse**
+
+| Règle | FN | FP | Automatisés | Revue |
+|---|---:|---:|---:|---:|
+| Seuil unique 0,07 | 0 | 48 | 104 | 0 |
+| Seuil unique 0,21 (retenu) | 1 | 28 | 104 | 0 |
+| Seuil unique 0,98 | 26 | 0 | 104 | 0 |
+| Triage 0,20 / 0,88 (retenu) | 1 | 1 | 61 | 43 |
+| Triage 0,07 / 0,98 | 0 | 0 | 30 | 74 |
+
+**0 FN et 0 FP sur la partie automatisée est possible** (triage 0,07 / 0,98), mais **74 messages
+sur 104 (71 %) partent en revue humaine** et le système n'automatise plus que 30 cas. À 0,89 / 0,90
+on a 1 FP mais 15 à 18 FN. Le compromis retenu reste **0,21 + triage 0,20 / 0,88**.
 
 ## Limites
 

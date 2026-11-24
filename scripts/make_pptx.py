@@ -34,7 +34,7 @@ prs.slide_width = Inches(13.333333)
 prs.slide_height = Inches(7.5)
 BLANK = prs.slide_layouts[6]
 SW, SH = 13.333333, 7.5
-N = 18
+N = 20
 
 
 def rect(slide, x, y, w, h, fill, line=None, radius=False, line_w=1.0):
@@ -369,7 +369,7 @@ textbox(s, 0.80, 4.92, 11.7, 1.25,
         10.5, WHITE)
 notes(s, """À dire : suivre le flux de gauche à droite en haut puis de droite à gauche en bas.\n"
 "Pourquoi : cette architecture garantit l'absence de data leakage ; c'est le point le plus souvent attaqué par un jury.\n"
-"Question jury : « Où est calculé le seuil ? » → à l'étape 10, uniquement avec les probabilités out-of-fold du train.""")
+"Question jury : « Où est calculé le seuil ? » → à l'étape 10, uniquement avec les probabilités de validation croisée du train.""")
 
 # ---------------------------------------------------------------------------
 # 7 — Processus (schéma corrigé)
@@ -491,21 +491,21 @@ notes(s, """À dire : commenter les graphiques comme des signaux, pas comme des 
 # ---------------------------------------------------------------------------
 s = base_slide(11, '03 — Données', 'Matrice de corrélation et associations à la cible')
 panel(s, 0.55, 1.32, 6.30, 4.55, IMG / 'cell39_0.png',
-      'Matrice de Pearson (variables explicatives)',
-      'Couleur : corrélation de −1 (vert) à +1 (brun).',
-      'Peu de fortes corrélations entre variables ; aucune causalité démontrée.',
-      'le modèle gère les interactions.', img_ratio=0.62, cap_size=9)
+      'Matrice de Pearson — variables + cible',
+      'La cible est incluse : dernière ligne / colonne (Oui = 1).',
+      'Peu de corrélations entre variables ; la cible ressort avec l\'âge du domaine, l\'urgence et les liens.',
+      'le modèle combine ces signaux.', img_ratio=0.62, cap_size=9)
 panel(s, 7.10, 1.32, 5.65, 4.55, IMG / 'cell41_0.png',
       'Association de chaque variable avec Oui',
       'Corrélation de Pearson avec la cible binaire (Oui = 1).',
-      'domaine_age_jours et urgence_score ressortent en tête.',
+      'domaine_age_jours (−0,33), urgence_score (+0,27) et nb_liens (+0,26) ressortent.',
       'ces signaux sont retenus dans le modèle final.', img_ratio=0.62, cap_size=9)
 textbox(s, 0.55, 6.05, 12.2, 0.65,
         'Précaution : une corrélation proche de zéro n\'implique pas l\'indépendance (des relations non linéaires '
-        'peuvent exister), et la matrice ci-dessus n\'inclut pas la cible — d\'où le second graphique.',
+        'peuvent exister). La cible est dans la matrice ; le graphique de droite détaille son association variable par variable.',
         10, GRAY, italic=True)
-notes(s, """À dire : distinguer corrélation entre prédicteurs et association avec la cible.\n"
-"Question jury : « Pourquoi garder des variables peu corrélées ? » → une faible corrélation linéaire n'exclut pas un apport en combinaison ; le SVM RBF peut capter des interactions.""")
+notes(s, """À dire : la matrice contient désormais la cible (Oui = 1) en dernière ligne / colonne ; le second graphique détaille ces associations.\n"
+"Question jury : « Pourquoi garder des variables peu corrélées ? » → une faible corrélation linéaire n'exclut pas un apport en combinaison ; le modèle multivarié capte les interactions.""")
 
 # ---------------------------------------------------------------------------
 # 12 — Préparation / split
@@ -530,7 +530,7 @@ textbox(s, 0.80, 4.90, 11.7, 1.55,
         'ni dans la sélection du modèle retenu. Le rapport final est donc une estimation honnête.',
         11, WHITE)
 notes(s, """À dire : montrer la séparation train/test comme un contrat.\n"
-"Question jury : « Le test a-t-il servi à choisir 0,21 ? » → Non : le plateau de coût vient des probabilités out-of-fold du train.""")
+"Question jury : « Le test a-t-il servi à choisir 0,21 ? » → Non : le plateau de coût vient des probabilités de validation croisée du train.""")
 
 # ---------------------------------------------------------------------------
 # 13 — Modèles et protocole
@@ -728,6 +728,81 @@ textbox(s, 0.55, 6.40, 12.2, 0.5, 'Merci pour votre attention — Questions ?',
 notes(s, """À dire : conclure sur la démarche scientifique plus que sur le score brut.\n"
 "Pourquoi : la fidélité au notebook est la priorité ; toute question chiffrée doit renvoyer aux slides 14–17.\n"
 "Questions jury utiles : pourquoi la médiane (asymétrie), pourquoi standardiser (LR/SVM), pourquoi F1 macro (classes déséquilibrées), pourquoi pas l'accuracy seule (72 % sans détection), pourquoi la CV puis le test (sélection puis contrôle), pourquoi le jeu synthétique limite la généralisation, pourquoi R² n'est pas adapté, pourquoi un seuil plus bas augmente rappel et fausses alertes.""")
+
+
+# ---------------------------------------------------------------------------
+# 19 — Annexe A : personnalisation_score
+# ---------------------------------------------------------------------------
+s = base_slide(19, '07 — Annexes', 'Zoom sur `personnalisation_score` (0–10)')
+card(s, 0.55, 1.28, 5.90, 2.45, 'Ce que mesure la variable',
+     'Degré auquel un message semble adapté personnellement à son destinataire, '
+     'plutôt que générique.\n\n'
+     'Générique (score faible) : « Cher client, votre compte nécessite une vérification. Cliquez ici. »\n\n'
+     'Personnalisé (score plus élevé) : « Bonjour Faker, votre compte bancaire associé à votre '
+     'adresse e-mail nécessite une vérification. »', body_size=10.5)
+table(s, 6.75, 1.28, 6.00, 2.10,
+      ['Score', 'Interprétation'],
+      [['0–2', 'Très peu personnalisé'],
+       ['3–4', 'Faiblement personnalisé'],
+       ['5–7', 'Moyennement personnalisé'],
+       ['8–10', 'Fortement personnalisé']],
+      widths=[1.0, 3.2], font=10.5, first_col_bold=True)
+textbox(s, 6.80, 3.48, 5.95, 0.30,
+        'Bornes illustratives : l\'échelle réelle du fichier va bien de 0 à 10 (moyenne 4,98).',
+        8.8, GRAY, italic=True)
+card(s, 0.55, 3.85, 5.90, 3.00, 'Rapport avec le phishing',
+     'Le spear phishing exploite des informations personnelles pour gagner la confiance.\n\n'
+     'Messages normaux : score moyen 4,82\n'
+     'Messages malveillants : score moyen 5,40\n'
+     'Corrélation avec la cible : r = +0,10 (faible, non nulle)\n\n'
+     'La variable est conservée : la personnalisation seule ne prouve rien, mais elle '
+     'complète l\'âge du domaine, l\'urgence et l\'expéditeur inconnu.', body_size=10.5)
+card(s, 6.75, 3.85, 6.00, 3.00, 'À retenir',
+     'Un message très personnalisé n\'est pas forcément malveillant : les banques et les '
+     'entreprises personnalisent aussi leurs envois.\n\n'
+     'La personnalisation est un signal de contexte, pas une preuve. Le verdict vient de la '
+     'combinaison des variables, jamais d\'un seul attribut.', body_size=11)
+textbox(s, 0.55, 6.55, 12.2, 0.35,
+        'Référence : notebook, cellule « Zoom sur personnalisation_score » ; application, page 1 '
+        '(explication détaillée) et page 6 (annexe A).', 9, GRAY, italic=True)
+notes(s, """À dire : définir la variable avec les deux exemples, puis donner les moyennes réelles (4,82 vs 5,40).\n"
+"Pourquoi : le jury peut penser qu'une forte personnalisation suffit à conclure au phishing ; c'est faux.\n"
+"Question jury : « Pourquoi garder une variable si la corrélation est faible ? » → elle capte le spear phishing en interaction avec les autres signaux ; le modèle multivarié décide, pas la variable seule.""")
+
+# ---------------------------------------------------------------------------
+# 20 — Annexe B : vérifications et traçabilité
+# ---------------------------------------------------------------------------
+s = base_slide(20, '07 — Annexes', 'Vérifications et traçabilité')
+card(s, 0.55, 1.28, 6.30, 2.35, 'Notebook : un seul exemplaire, exécuté',
+     'Identique octet pour octet au notebook réexécuté de zéro : cmp → IDENTIQUE, 89 cellules, 0 erreur.\n\n'
+     'model.joblib identique ; model_meta.json ne change que des libellés (mêmes seuils, mêmes métriques).\n\n'
+     '« OOF » remplacé partout par « validation croisée ». Résultats inchangés : AUC 0,9092 ± 0,0031, '
+     'seuil 0,21, test AUC 0,910 / AP 0,810 / Brier 0,123.', body_size=9.8)
+table(s, 0.55, 3.85, 6.30, 2.55,
+      ['Modèle (même saisie)', 'P(Oui)', 'Classe', 'Zone'],
+      [['Modèle retenu', '28,19 %', 'Oui', 'Vigilance'],
+       ['Régression logistique', '44,57 %', 'Oui', 'Vigilance'],
+       ['Random Forest', '20,30 %', 'Non', 'Vigilance'],
+       ['KNN / SVM RBF', '0 % / 17,14 %', 'Non', 'Normal']],
+      widths=[2.3, 1.5, 0.9, 1.3], font=9.3)
+textbox(s, 0.55, 6.45, 6.30, 0.35,
+        'Scénarios : 1 → Non (0,1 %) ; 2 → Oui (100 %) ; 3 → Oui + revue humaine (47,1 %).',
+        8.8, GRAY, italic=True)
+table(s, 7.10, 1.28, 5.65, 2.85,
+      ['Règle', 'FN', 'FP', 'Auto', 'Revue'],
+      [['Seuil unique 0,07', '0', '48', '104', '0'],
+       ['Seuil unique 0,21', '1', '28', '104', '0'],
+       ['Seuil unique 0,98', '26', '0', '104', '0'],
+       ['Triage 0,20 / 0,88', '1', '1', '61', '43'],
+       ['Triage 0,07 / 0,98', '0', '0', '30', '74']],
+      widths=[2.2, 0.7, 0.7, 0.8, 0.9], font=9.5, first_col_bold=True)
+card(s, 7.10, 4.35, 5.65, 2.05, 'Le compromis, sans promesse',
+     '0 FN et 0 FP sur la partie automatisée est possible (triage 0,07 / 0,98), mais 74 messages '
+     'sur 104 (71 %) partent alors en revue humaine. Le triage retenu 0,20 / 0,88 automatise '
+     '61 cas avec 1 FN et 1 FP : c\'est le compromis choisi.', body_size=10.2)
+notes(s, """À dire : montrer la traçabilité (notebook unique et réexécuté, mêmes artefacts) puis les deux tableaux.\n"
+"Pourquoi : le jury vérifie souvent que les chiffres de la présentation sortent bien du notebook.\n"
+"Question jury : « Peut-on avoir zéro erreur ? » → oui sur la partie automatisée, au prix de 71 % de revue humaine ; le seuil unique ne peut pas annuler FN et FP en même temps.""")
 
 # Nettoyage des guillemets parasite laissés par les chaînes de notes multilignes
 import re

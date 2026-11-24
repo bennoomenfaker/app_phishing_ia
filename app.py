@@ -1138,17 +1138,20 @@ elif page.startswith("2"):
         st.caption("**Lecture** : une barre haute indique un segment plus à risque. Ce n'est pas "
                    "une preuve causale : la taille de l'échantillon compte.")
 
-    st.subheader("Étape 5 — Matrice de corrélation")
+    st.subheader("Étape 5 — Matrice de corrélation (variables + cible)")
+    COL_CIBLE = f"cible ({SEVERE} = 1)"
     df_corr = propre[num_cols + [TARGET]].copy()
-    df_corr["_ord"] = df_corr[TARGET].map(ORD_MAP)
-    corr = df_corr[num_cols + ["_ord"]].corr(numeric_only=True)
-    fig, ax = plt.subplots(figsize=(8, 6))
+    df_corr[COL_CIBLE] = (df_corr[TARGET] == SEVERE).astype(int)
+    corr = df_corr[num_cols + [COL_CIBLE]].corr(numeric_only=True)
+    fig, ax = plt.subplots(figsize=(8, 6.4))
     sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0, ax=ax)
-    ax.set_title("Corrélation (cible encodée 0 → " + str(len(ORDER) - 1) + ")")
+    ax.set_title(f"Corrélation de Pearson — la cible est incluse ({SEVERE} = 1)")
     fig.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
-    top = corr["_ord"].drop("_ord").sort_values(key=abs, ascending=False)
+    st.markdown(f"**La cible est dans la matrice** : sa dernière ligne / colonne donne l'association "
+                f"de chaque variable avec `{SEVERE}` (encodée 1, `{ORDER[0]}` = 0).")
+    top = corr[COL_CIBLE].drop(COL_CIBLE).sort_values(key=abs, ascending=False)
     st.dataframe(top.rename("corrélation_avec_cible").to_frame(), **DF_KW)
     signaux = ", ".join(f"`{c} {v:+.3f}`" for c, v in top.head(4).items())
     st.caption(f"**Signaux les plus liés à `Oui`, calculés sur le dataset courant** : {signaux}. "
@@ -2680,6 +2683,96 @@ probabilité à une étiquette 0/1 :
 Les critères de décision retenus sont : **rappel `Oui`, matrice de confusion au seuil {SEUIL:.2f},
 F1 macro, AUC/AP et validation croisée**. R², MAE, MSE et RMSE restent affichés et expliqués parce
 que le cahier des charges les demande — pas parce qu'ils choisissent le modèle.
+""")
+    st.markdown("---")
+
+    _p_non = float(propre.loc[propre[TARGET] == ORDER[0], "personnalisation_score"].mean())
+    _p_oui = float(propre.loc[propre[TARGET] == SEVERE, "personnalisation_score"].mean())
+    _p_corr = float(propre["personnalisation_score"].corr((propre[TARGET] == SEVERE).astype(int)))
+    st.markdown(f"""
+## 19. Annexe A — zoom sur `personnalisation_score` (0–10)
+
+Cet attribut mesure **à quel point un message semble adapté personnellement à son destinataire**,
+plutôt que d'être un message générique envoyé à tout le monde.
+
+**Exemple 1 — message générique (score faible)**
+
+> Cher client, votre compte nécessite une vérification. Cliquez ici.
+
+Aucune information personnelle : le score doit rester bas.
+
+**Exemple 2 — message personnalisé (score plus élevé)**
+
+> Bonjour Faker, votre compte bancaire associé à votre adresse e-mail nécessite une vérification.
+
+Le prénom et une information qui semble concerner le destinataire sont utilisés : le score monte.
+
+**Comment lire le score ?** L'échelle réelle du fichier va de **0 à 10**
+(minimum {propre['personnalisation_score'].min():.0f}, maximum {propre['personnalisation_score'].max():.0f},
+moyenne {propre['personnalisation_score'].mean():.2f}) :
+
+| Score | Interprétation |
+|---|---|
+| 0–2 | Très peu personnalisé |
+| 3–4 | Faiblement personnalisé |
+| 5–7 | Moyennement personnalisé |
+| 8–10 | Fortement personnalisé |
+
+Ces bornes sont **illustratives** : l'échelle du fichier est vérifiée dans le code, pas supposée.
+
+**Rapport avec le phishing**
+
+- Messages normaux : score moyen **{_p_non:.2f}**.
+- Messages malveillants : score moyen **{_p_oui:.2f}**.
+- Corrélation avec la cible : **{_p_corr:+.2f}** — faible, mais non nulle.
+
+Le *spear phishing* exploite des informations personnelles pour gagner la confiance.
+**Attention** : un message très personnalisé n'est pas forcément malveillant (les banques et les
+entreprises personnalisent aussi). La variable est **conservée**, mais elle ne suffit jamais seule :
+c'est la combinaison avec l'âge du domaine, l'urgence et l'expéditeur inconnu qui produit le verdict.
+""")
+    st.markdown("---")
+
+    st.markdown(f"""
+## 20. Annexe B — vérifications et traçabilité
+
+**Notebook : un seul exemplaire, réellement exécuté**
+
+- Le notebook du projet est **identique octet pour octet** au notebook réexécuté de zéro :
+  `cmp` → IDENTIQUE, **{len(json.loads(NOTEBOOK.read_text(encoding="utf-8")).get("cells", []))} cellules,
+  0 erreur** ; la matrice de corrélation inclut la cible (`cible (Oui = 1)`).
+- `model.joblib` identique ; `model_meta.json` ne change que des libellés (mêmes seuils,
+  mêmes métriques).
+- « OOF » supprimé partout (notebook, application, présentation) et remplacé par
+  « validation croisée ». Résultats inchangés : **AUC 0,9092 ± 0,0031**, seuil **0,21**,
+  test **AUC 0,910 / AP 0,810 / Brier 0,123**.
+
+**Formulaire de prédiction : trois cas lisibles**
+
+| Modèle (même saisie) | P(Oui) | Classe binaire | Zone |
+|---|---:|---|---|
+| Modèle retenu (joblib) | 28,19 % | Oui — malveillant | 🟠 VIGILANCE |
+| Régression logistique | 44,57 % | Oui — malveillant | 🟠 VIGILANCE |
+| Random Forest | 20,30 % | Non — légitime | 🟠 VIGILANCE |
+| KNN / SVM RBF | 0 % / 17,14 % | Non — légitime | 🟢 NORMAL |
+
+Les trois scénarios : **1 → 🟢 Non**, **2 → 🔴 Oui malveillant (100 %)**, **3 → 🟠 Oui + revue
+humaine (47,1 %)**. La classe ne vaut plus jamais « À vérifier » : elle est `Oui` / `Non`,
+le triage est une colonne séparée.
+
+**FN / FP = 0 sur le test : les chiffres, sans promesse**
+
+| Règle | FN | FP | Automatisés | Revue |
+|---|---:|---:|---:|---:|
+| Seuil unique 0,07 | 0 | 48 | 104 | 0 |
+| Seuil unique 0,21 (retenu) | 1 | 28 | 104 | 0 |
+| Seuil unique 0,98 | 26 | 0 | 104 | 0 |
+| Triage 0,20 / 0,88 (retenu) | 1 | 1 | 61 | 43 |
+| Triage 0,07 / 0,98 | 0 | 0 | 30 | 74 |
+
+Donc : **0 FN et 0 FP sur la partie automatisée est possible**, mais alors **74 messages sur 104
+(71 %) partent en revue humaine** et le système n'automatise plus que 30 cas. À 0,89 / 0,90 on a
+1 FP mais 15 à 18 FN. Le compromis retenu reste **0,21 + triage 0,20 / 0,88**.
 """)
 
     st.markdown("### Télécharger les livrables")

@@ -76,11 +76,21 @@ print('\npage 3 : tableaux FN/FP et triage zéro erreur OK')
 goto('6. Présentation (soutenance)')
 t6 = textes()
 for marqueur in ('1. Page de garde', '6. Architecture globale', '14. Résultats expérimentaux',
-                 '18. Conclusion', 'AUC', 'R²', 'MAE', 'RMSE', 'MSE', 'Accuracy',
+                 '18. Conclusion', '19. Annexe A', '20. Annexe B',
+                 'personnalisation_score', 'Triage 0,07 / 0,98',
+                 'AUC', 'R²', 'MAE', 'RMSE', 'MSE', 'Accuracy',
                  'Merci pour votre attention'):
     assert marqueur in t6, marqueur
 assert 'slide' not in t6.lower()
 print('page 6 : 18 sections + glossaire des métriques OK')
+
+# --- page 2 : matrice de corrélation avec la cible ---
+goto('2. Processus ML (pas à pas)')
+cols2 = [tuple(df.value.columns) for df in at.dataframe if hasattr(df.value, 'columns')]
+assert any('corrélation_avec_cible' in c for c in cols2), cols2
+t2 = textes()
+assert 'La cible est dans la matrice' in t2
+print('page 2 : matrice de corrélation avec la cible OK')
 
 # --- page 5 : R² / MAE / MSE ---
 goto('5. Soutenance (12 points)')

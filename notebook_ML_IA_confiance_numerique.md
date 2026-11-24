@@ -936,8 +936,6 @@ print(df_brut[TARGET].value_counts(dropna=False))
 
 
     Valeurs distinctes de la cible :
-
-
     message_malveillant
     Non    377
     Oui    147
@@ -2007,57 +2005,49 @@ La corrélation de Pearson mesure une association linéaire entre variables num�
 
 
 ```python
+# Corrélations entre les variables explicatives ET la cible
+# La cible est incluse (encodée Oui = 1) pour voir son association avec chaque variable.
+# Les variables calendaires (date, semaine) restent exclues.
 
-# Corrélation entre les variables numériques explicatives
-# On exclut la cible et les variables calendaires.
+IGNORER = ["date", "semaine"]
 
-IGNORER = [TARGET, "date", "semaine"]
-
-# Sélection des colonnes numériques
 num_features_eda = [
     c for c in df.select_dtypes(include="number").columns
     if c not in IGNORER
 ]
 
-print("Variables numériques analysées :", num_features_eda)
+# Encodage temporaire de la cible, uniquement pour la corrélation : Oui = 1, Non = 0
+df_corr = df[num_features_eda].copy()
+df_corr["cible (Oui = 1)"] = (df[TARGET] == "Oui").astype(int)
 
-# Vérification du nombre de variables
-if len(num_features_eda) >= 2:
+corr = df_corr.corr(method="pearson")
 
-    # Calcul de la corrélation de Pearson
-    corr = df[num_features_eda].corr(method="pearson")
+plt.figure(figsize=(12, 9))
+sns.heatmap(
+    corr,
+    annot=True,
+    cmap="coolwarm",
+    center=0,
+    vmin=-1,
+    vmax=1,
+    fmt=".2f",
+    linewidths=0.5
+)
 
-    # Affichage de la heatmap
-    plt.figure(figsize=(12, 8))
-    sns.heatmap(
-        corr,
-        annot=True,
-        cmap="coolwarm",
-        center=0,
-        vmin=-1,
-        vmax=1,
-        fmt=".2f",
-        linewidths=0.5
-    )
+plt.title("Matrice de corrélation de Pearson — variables explicatives + cible (Oui = 1)")
+plt.tight_layout()
+plt.show()
 
-    plt.title("Matrice de corrélation de Pearson")
-    plt.tight_layout()
-    plt.show()
+display(corr.round(3))
 
-    # Affichage du tableau
-    display(corr.round(3))
-
-else:
-    print("Pas assez de variables numériques pour calculer les corrélations.")
+# La dernière ligne / colonne donne l'association de chaque variable avec la cible.
+display(corr["cible (Oui = 1)"].drop("cible (Oui = 1)").sort_values(key=abs, ascending=False).round(3).to_frame())
 
 ```
 
-    Variables numériques analysées : ['heure_envoi', 'longueur_message', 'nb_liens', 'urgence_score', 'domaine_age_jours', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
-
-
 
     
-![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_41_1.png)
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_41_0.png)
     
 
 
@@ -2089,6 +2079,7 @@ else:
       <th>expediteur_connu</th>
       <th>piece_jointe</th>
       <th>personnalisation_score</th>
+      <th>cible (Oui = 1)</th>
     </tr>
   </thead>
   <tbody>
@@ -2103,6 +2094,7 @@ else:
       <td>0.001</td>
       <td>0.013</td>
       <td>0.024</td>
+      <td>-0.017</td>
     </tr>
     <tr>
       <th>longueur_message</th>
@@ -2115,6 +2107,7 @@ else:
       <td>-0.008</td>
       <td>0.000</td>
       <td>-0.022</td>
+      <td>-0.072</td>
     </tr>
     <tr>
       <th>nb_liens</th>
@@ -2127,6 +2120,7 @@ else:
       <td>0.055</td>
       <td>0.049</td>
       <td>-0.055</td>
+      <td>0.259</td>
     </tr>
     <tr>
       <th>urgence_score</th>
@@ -2139,6 +2133,7 @@ else:
       <td>0.063</td>
       <td>0.014</td>
       <td>-0.020</td>
+      <td>0.272</td>
     </tr>
     <tr>
       <th>domaine_age_jours</th>
@@ -2151,6 +2146,7 @@ else:
       <td>0.067</td>
       <td>-0.021</td>
       <td>0.042</td>
+      <td>-0.329</td>
     </tr>
     <tr>
       <th>fautes_langue</th>
@@ -2163,6 +2159,7 @@ else:
       <td>-0.009</td>
       <td>0.001</td>
       <td>0.008</td>
+      <td>-0.035</td>
     </tr>
     <tr>
       <th>expediteur_connu</th>
@@ -2175,6 +2172,7 @@ else:
       <td>1.000</td>
       <td>-0.046</td>
       <td>-0.055</td>
+      <td>-0.242</td>
     </tr>
     <tr>
       <th>piece_jointe</th>
@@ -2187,6 +2185,7 @@ else:
       <td>-0.046</td>
       <td>1.000</td>
       <td>0.030</td>
+      <td>0.102</td>
     </tr>
     <tr>
       <th>personnalisation_score</th>
@@ -2199,14 +2198,102 @@ else:
       <td>-0.055</td>
       <td>0.030</td>
       <td>1.000</td>
+      <td>0.102</td>
+    </tr>
+    <tr>
+      <th>cible (Oui = 1)</th>
+      <td>-0.017</td>
+      <td>-0.072</td>
+      <td>0.259</td>
+      <td>0.272</td>
+      <td>-0.329</td>
+      <td>-0.035</td>
+      <td>-0.242</td>
+      <td>0.102</td>
+      <td>0.102</td>
+      <td>1.000</td>
     </tr>
   </tbody>
 </table>
 </div>
 
 
-**Tâche** : mesurer l'association de chaque variable explicative avec la cible encodée `Oui = 1`.
-**Pourquoi** : la heatmap précédente ne contient pas la cible : elle sert à détecter la redondance entre explicatives. On complète ici par l'association avec `message_malveillant` pour répondre à la question Q1.
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>cible (Oui = 1)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>-0.329</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>0.272</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>0.259</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>-0.242</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>0.102</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>0.102</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>-0.072</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>-0.035</td>
+    </tr>
+    <tr>
+      <th>heure_envoi</th>
+      <td>-0.017</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+**Lecture de la matrice** : la dernière ligne et la dernière colonne sont la **cible encodée**
+(`Oui = 1`, `Non = 0`). On y lit directement l'association de chaque variable avec la malveillance,
+en plus des corrélations entre variables explicatives (détection de redondance).
+
+- Les cases **hors cible** restent très faibles (|r| ≤ 0,07) : les 9 variables sont quasiment
+  indépendantes, pas de colinéarité problématique.
+- Avec la cible, les liens sont plus nets : `domaine_age_jours` **−0,329**, `urgence_score`
+  **+0,272**, `nb_liens` **+0,259**, `expediteur_connu` **−0,242**.
+- ⚠️ La cible est binaire : le coefficient est une **corrélation point-bisérielle** (cas
+  particulier de Pearson), à lire comme un lien linéaire, jamais comme une causalité. Encoder
+  `Oui = 1` sert seulement à visualiser ; le modèle ne voit jamais la cible dans `X`.
+
 
 
 ```python
@@ -3835,7 +3922,7 @@ def cout(y_true, p, seuil, c_fn=COUT_FN):
 
 
 def probas_validation(modele, X, y, n_repetitions=5):
-    """Probabilités out-of-fold moyennées sur n répétitions de la CV 5-fold."""
+    """Probabilités de validation croisée, moyennées sur n répétitions (CV 5-fold)."""
     idx_oui = sorted(y.unique().tolist()).index("Oui")
     repetitions, aucs, aps = [], [], []
     for seed in range(RANDOM_STATE, RANDOM_STATE + n_repetitions):
@@ -4899,7 +4986,7 @@ print("model.joblib / model_meta.json synchronisés avec le notebook.")
 
 ```
 
-    Modèle et résultats sauvegardés dans : /home/himawari/Desktop/learn_python/iscae/Mini-projet 3: Veille stratégique – IA et confiance numérique/app_phishing_ia/artefacts
+    Modèle et résultats sauvegardés dans : /tmp/opencode/nbfix2/artefacts
     model.joblib / model_meta.json synchronisés avec le notebook.
 
 
