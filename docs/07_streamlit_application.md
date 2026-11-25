@@ -11,7 +11,7 @@ L'application `app.py` est un prototype pédagogique d'aide à la décision. Ell
 | `CFG` | Configuration centrale : titre, jeux de données, cible, seuil, libellés, scénarios, règles d'explication |
 | Constantes de chemin | `ROOT`, `DATA_PATH`, `MODEL_PATH` (`model.joblib`), `META_PATH` (`model_meta.json`), `NOTEBOOK` |
 | Constantes de décision | `SEUIL = 0,21`, `SEUIL_BAS = 0,20`, `SEUIL_HAUT = 0,88`, lus dans `model_meta.json` |
-| Navigation | `PAGES` : 11 entrées, dont le mode présentation académique |
+| Navigation | `PAGES` : 12 entrées, dont le mode présentation académique |
 | Fonctions de chargement | `load_model`, `load_data`, `get_train_split`, `get_train_correlation`, `get_deployed_test_metrics` |
 | Fonctions métier | `prepare_xy`, `FeaturesPhishing`, `make_modele_ameliore`, `predire`, `expliquer` |
 | Fonctions de restitution | `render_notebook`, graphiques, `heatmap_cm`, `render_correlation_page`, `render_process_page`, `render_comparison_page`, `render_evaluation_page`, `render_about_page`, `render_presentation_mode` |

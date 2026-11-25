@@ -125,11 +125,14 @@ moyenne **5,40** ; corrélation avec la cible **r ≈ +0,10**.
 Les deux commandes se lancent depuis le dossier du projet, sans réseau.
 
 ```bash
-# 1. Présentation PowerPoint (20 diapositives : 18 + 2 annexes, images de artefacts/pptx/)
+# 1. (Legacy) Présentation PowerPoint 20 diapositives, ancien générateur
 python3 scripts/make_pptx.py
-# → Presentation_Projet_Phishing_IA.pptx
+# → Presentation_Projet_Phishing_IA.pptx  (noms d'images issus d'anciennes cellules)
 
-# 2. Notebook → Markdown (texte + images des sorties)
+# 2. Plan de la présentation 15 diapositives (valeurs + images à insérer)
+#    → docs/11_plan_pptx_15_diapos.md  (référence actuelle)
+
+# 3. Notebook → Markdown (texte + images des sorties)
 python3 -m nbconvert --to markdown notebook_ML_IA_confiance_numerique.ipynb
 # → notebook_ML_IA_confiance_numerique.md
 # → notebook_ML_IA_confiance_numerique_files/  (images extraites)
@@ -159,7 +162,8 @@ le Markdown, le texte et le JSON. Le dossier fournit donc déjà la version text
 | `model_meta.json` | seuils appris (0,21 / 0,20 / 0,88), métriques, triage | oui |
 | `artefacts/seuil_phishing_ia.json` | protocole de choix du seuil (plateau 0,20–0,22) | recommandé |
 | `artefacts/comparaison_modeles_phishing_ia.csv` | résultats chiffrés par modèle | recommandé |
-| `Presentation_Projet_Phishing_IA.pptx` | la version de référence à imiter (20 diapositives) | facultatif |
+| `docs/11_plan_pptx_15_diapos.md` | plan 15 diapositives : titre, messages, valeurs exactes, image à insérer, notes | oui |
+| `Presentation_Projet_Phishing_IA.pptx` | ancienne version de référence 20 diapositives (si présente) | facultatif |
 
 Si le `.md` est absent ou périmé, le régénérer (commande donnée plus haut) :
 
@@ -172,7 +176,7 @@ python3 -m nbconvert --to markdown notebook_ML_IA_confiance_numerique.ipynb
 ```text
 Tu es assistant de soutenance pour un Master Veille et Intelligence Compétitive (ESEN–ISCAE).
 À partir des fichiers joints (notebook en Markdown, README, model_meta.json), crée une
-présentation PowerPoint de 20 diapositives, en français, pour un jury non technique.
+présentation PowerPoint de 15 diapositives, en français, pour un jury non technique.
 
 Règles absolues :
 - N'invente AUCUN chiffre. Utilise uniquement ceux des fichiers joints.
@@ -263,16 +267,15 @@ recalculés automatiquement.
 
 | Fichier | Rôle |
 |---|---|
-| `app.py` | Interface Streamlit : 11 entrées (contexte, EDA, corrélations, processus, comparaison, évaluation, prédiction, attributs, limites, guide, mode présentation) |
-| `docs/01_dataset_and_eda.md` … `docs/09_audit_findings.md` | Documentation scientifique et rapport d'audit (9 fichiers) |
+| `app.py` | Interface Streamlit : 12 pages (accueil, EDA, corrélations, processus, comparaison, évaluation, prédiction, attributs, limites, guide, mode présentation, comprendre le ML) |
+| `docs/01_dataset_and_eda.md` … `docs/11_plan_pptx_15_diapos.md` | Documentation scientifique, rapport d'audit et plan de présentation (11 fichiers) |
 | `model.joblib` | Pipeline scikit-learn entraîné (régression logistique améliorée) |
 | `model_meta.json` | Seuils appris, bornes des champs, métriques, triage, citation |
 | `dataset_phishing_ia - dataset_phishing_ia.csv` | Jeu de données synthétique (copie locale) |
 | `notebook_ML_IA_confiance_numerique.ipynb` | Notebook de référence, source des décisions scientifiques |
-| `Presentation_Projet_Phishing_IA.pptx` | Présentation 20 diapositives (18 + 2 annexes), notes orales, images issues du notebook exécuté |
-| `scripts/make_pptx.py` | Régénère le PPTX depuis les images de `artefacts/pptx/` |
-| `notebook_ML_IA_confiance_numerique.md` | Version Markdown du notebook exécuté (avec ses images) |
-| `1.ipynb` | Copie de travail du notebook, identique à la version de référence |
+| `docs/11_plan_pptx_15_diapos.md` | Plan de la présentation **15 diapositives** : titre, messages, valeurs exactes, image à insérer, notes orales |
+| `scripts/make_pptx.py` | Ancien générateur 20 diapositives (noms d'images issus d'anciens numéros de cellules) — **le plan de référence est `docs/11`** |
+| `notebook_ML_IA_confiance_numerique.md` | Version Markdown du notebook exécuté (texte des cellules et sorties ; les graphiques restent dans le `.ipynb`) |
 | `artefacts/seuil_phishing_ia.json` | Protocole de choix du seuil sauvegardé par le notebook |
 | `artefacts/pptx/` | Images extraites du notebook pour la présentation |
 | `requirements.txt` | Dépendances |

@@ -36,6 +36,7 @@ Avec l'IA, un message peut être bien écrit, personnalisé, adapté au ton d'un
 Le modèle ne « lit » pas comme un humain. Il regarde des **signaux/variables** et combine ces signaux pour estimer une probabilité : **malveillant (Oui)** ou **normal (Non)**.  
 C'est une **aide à la décision** : un humain doit vérifier avant de bloquer/supprimer.
 
+
 ## 1. Données, objectif et cadre méthodologique
 
 **Jeu de données synthétique** généré localement pour ce mini-projet (ISCAE Master VIC). Il ne contient **aucun vrai e-mail, aucune donnée personnelle et aucune source externe** à citer. Les performances mesurées ici ne doivent donc **pas** être présentées comme des résultats obtenus sur de vraies campagnes de phishing.
@@ -49,6 +50,7 @@ C'est une **aide à la décision** : un humain doit vérifier avant de bloquer/s
 Le résultat est une **aide à la décision** : la vérification finale reste humaine. Aucun message n'est supprimé automatiquement.
 
 **Règle méthodologique appliquée dans tout le notebook.** La séparation train / test est définie au §8, **avant toute statistique descriptive**. Les analyses qui peuvent orienter la modélisation (corrélations, associations, moyennes par classe) sont donc calculées sur le **train seul (416 messages)** ; le test (104 messages) n'est lu qu'au §16 et au §18, pour mesurer. Les contrôles de qualité (types, doublons, valeurs manquantes) portent en revanche sur le fichier brut complet : ils ne servent pas à choisir un modèle.
+
 
 ## 2. Comment choisir un modèle ?
 
@@ -74,6 +76,7 @@ On veut détecter les messages **malveillants (phishing IA)**. Les classes sont 
 1. Le modèle est choisi **sur le train uniquement**, par validation croisée (§15).
 2. Le modèle retenu est ensuite **spécialisé** (`log_age`, interactions) et son **seuil** est appris sur les probabilités hors pli du train (§17).
 3. Le **test** n'est lu qu'ensuite, une seule fois, pour mesurer (§16 et §18). La comparaison des trois modèles de référence sur le test est donc **descriptive** : elle n'entre pas dans la sélection.
+
 
 **Mini-projet 3 — Veille stratégique : IA et confiance numérique**
 
@@ -156,9 +159,12 @@ Cet attribut mesure **à quel point un message semble adapté à son destinatair
 
 Exécuter les cellules dans l'ordre, de haut en bas.
 
+
 ## 4. Installation et importation des bibliothèques
 
 Installer une seule fois les bibliothèques si nécessaire.
+
+
 
 ```python
 # Dans un terminal Jupyter si les bibliothèques ne sont pas installées :
@@ -196,13 +202,15 @@ pd.set_option("display.max_columns", None)
 sns.set_theme(style="whitegrid")
 print("Bibliothèques chargées avec succès.")
 ```
-```text
-Bibliothèques chargées avec succès.
-```
+
+    Bibliothèques chargées avec succès.
+
 
 ## 5. Chargement du fichier
 
 Le CSV doit être dans le même dossier que ce notebook. Les constantes ci-dessous pointent directement sur le seul fichier utilisé.
+
+
 
 ```python
 # Chargement du dataset
@@ -213,80 +221,181 @@ TARGET = 'message_malveillant'
 ORDER = ['Non', 'Oui']
 
 print('Dimensions (lignes, colonnes) :', df_brut.shape)
+
 ```
-```text
-Dimensions (lignes, colonnes) : (524, 11)
-```
+
+    Dimensions (lignes, colonnes) : (524, 11)
+
+
 
 ```python
 # Dernières lignes
 df_brut.tail()
-```
-```text
-           date  heure_envoi  longueur_message  nb_liens  urgence_score  \
-519  2026-09-29            5               222         1              4   
-520  2026-09-30           10               475         4             10   
-521  2026-09-30            6               107         0             10   
-522  2026-09-30           14               509         0              4   
-523  2026-09-30           21               507         1              4   
 
-     domaine_age_jours  fautes_langue  expediteur_connu  piece_jointe  \
-519             5874.0              1                 0             0   
-520               41.0              4                 0             0   
-521              661.0              2                 1             1   
-522             1227.0              2                 1             0   
-523              800.0              3                 0             1   
-
-     personnalisation_score message_malveillant  
-519                       6                 Non  
-520                       7                 Oui  
-521                       6                 Non  
-522                       5                 Non  
-523                       5                 Non  
 ```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>date</th>
+      <th>heure_envoi</th>
+      <th>longueur_message</th>
+      <th>nb_liens</th>
+      <th>urgence_score</th>
+      <th>domaine_age_jours</th>
+      <th>fautes_langue</th>
+      <th>expediteur_connu</th>
+      <th>piece_jointe</th>
+      <th>personnalisation_score</th>
+      <th>message_malveillant</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>519</th>
+      <td>2026-09-29</td>
+      <td>5</td>
+      <td>222</td>
+      <td>1</td>
+      <td>4</td>
+      <td>5874.0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>6</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <th>520</th>
+      <td>2026-09-30</td>
+      <td>10</td>
+      <td>475</td>
+      <td>4</td>
+      <td>10</td>
+      <td>41.0</td>
+      <td>4</td>
+      <td>0</td>
+      <td>0</td>
+      <td>7</td>
+      <td>Oui</td>
+    </tr>
+    <tr>
+      <th>521</th>
+      <td>2026-09-30</td>
+      <td>6</td>
+      <td>107</td>
+      <td>0</td>
+      <td>10</td>
+      <td>661.0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>1</td>
+      <td>6</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <th>522</th>
+      <td>2026-09-30</td>
+      <td>14</td>
+      <td>509</td>
+      <td>0</td>
+      <td>4</td>
+      <td>1227.0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>0</td>
+      <td>5</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <th>523</th>
+      <td>2026-09-30</td>
+      <td>21</td>
+      <td>507</td>
+      <td>1</td>
+      <td>4</td>
+      <td>800.0</td>
+      <td>3</td>
+      <td>0</td>
+      <td>1</td>
+      <td>5</td>
+      <td>Non</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
 
 ```python
 # Colonnes
 df_brut.columns.tolist()
+
 ```
-```text
-['date',
- 'heure_envoi',
- 'longueur_message',
- 'nb_liens',
- 'urgence_score',
- 'domaine_age_jours',
- 'fautes_langue',
- 'expediteur_connu',
- 'piece_jointe',
- 'personnalisation_score',
- 'message_malveillant']
-```
+
+
+
+
+    ['date',
+     'heure_envoi',
+     'longueur_message',
+     'nb_liens',
+     'urgence_score',
+     'domaine_age_jours',
+     'fautes_langue',
+     'expediteur_connu',
+     'piece_jointe',
+     'personnalisation_score',
+     'message_malveillant']
+
+
+
 
 ```python
 # Informations générales
 df_brut.info()
+
 ```
-```text
-<class 'pandas.DataFrame'>
-RangeIndex: 524 entries, 0 to 523
-Data columns (total 11 columns):
- #   Column                  Non-Null Count  Dtype  
----  ------                  --------------  -----  
- 0   date                    524 non-null    str    
- 1   heure_envoi             524 non-null    int64  
- 2   longueur_message        524 non-null    int64  
- 3   nb_liens                524 non-null    int64  
- 4   urgence_score           524 non-null    int64  
- 5   domaine_age_jours       514 non-null    float64
- 6   fautes_langue           524 non-null    int64  
- 7   expediteur_connu        524 non-null    int64  
- 8   piece_jointe            524 non-null    int64  
- 9   personnalisation_score  524 non-null    int64  
- 10  message_malveillant     524 non-null    str    
-dtypes: float64(1), int64(8), str(2)
-memory usage: 45.2 KB
-```
+
+    <class 'pandas.DataFrame'>
+    RangeIndex: 524 entries, 0 to 523
+    Data columns (total 11 columns):
+     #   Column                  Non-Null Count  Dtype  
+    ---  ------                  --------------  -----  
+     0   date                    524 non-null    str    
+     1   heure_envoi             524 non-null    int64  
+     2   longueur_message        524 non-null    int64  
+     3   nb_liens                524 non-null    int64  
+     4   urgence_score           524 non-null    int64  
+     5   domaine_age_jours       514 non-null    float64
+     6   fautes_langue           524 non-null    int64  
+     7   expediteur_connu        524 non-null    int64  
+     8   piece_jointe            524 non-null    int64  
+     9   personnalisation_score  524 non-null    int64  
+     10  message_malveillant     524 non-null    str    
+    dtypes: float64(1), int64(8), str(2)
+    memory usage: 45.2 KB
+
+
 
 ```python
 print("Statistiques descriptives des variables numériques :")
@@ -295,62 +404,339 @@ display(df_brut.describe().T)
 print("Statistiques descriptives de toutes les variables :")
 display(df_brut.describe(include="all").T)
 ```
-```text
-Statistiques descriptives des variables numériques :
-```
-```text
-                        count        mean         std   min     25%    50%  \
-heure_envoi             524.0   12.238550    6.889344   0.0    6.00   13.0   
-longueur_message        524.0  413.225191  162.774765  60.0  301.50  423.0   
-nb_liens                524.0    1.387405    1.165433   0.0    1.00    1.0   
-urgence_score           524.0    4.519084    2.373696   0.0    3.00    4.0   
-domaine_age_jours       514.0  739.330739  761.682914   1.0  217.25  516.0   
-fautes_langue           524.0    2.020992    1.387440   0.0    1.00    2.0   
-expediteur_connu        524.0    0.440840    0.496962   0.0    0.00    0.0   
-piece_jointe            524.0    0.232824    0.423035   0.0    0.00    0.0   
-personnalisation_score  524.0    4.977099    2.554090   0.0    3.00    5.0   
 
-                           75%     max  
-heure_envoi              18.00    23.0  
-longueur_message        523.25   896.0  
-nb_liens                  2.00     5.0  
-urgence_score             6.00    10.0  
-domaine_age_jours       951.25  5874.0  
-fautes_langue             3.00     6.0  
-expediteur_connu          1.00     1.0  
-piece_jointe              0.00     1.0  
-personnalisation_score    7.00    10.0  
-```
-```text
-Statistiques descriptives de toutes les variables :
-```
-```text
-                        count unique         top freq        mean         std  \
-date                      524    231  2026-02-22    7         NaN         NaN   
-heure_envoi             524.0    NaN         NaN  NaN    12.23855    6.889344   
-longueur_message        524.0    NaN         NaN  NaN  413.225191  162.774765   
-nb_liens                524.0    NaN         NaN  NaN    1.387405    1.165433   
-urgence_score           524.0    NaN         NaN  NaN    4.519084    2.373696   
-domaine_age_jours       514.0    NaN         NaN  NaN  739.330739  761.682914   
-fautes_langue           524.0    NaN         NaN  NaN    2.020992     1.38744   
-expediteur_connu        524.0    NaN         NaN  NaN     0.44084    0.496962   
-piece_jointe            524.0    NaN         NaN  NaN    0.232824    0.423035   
-personnalisation_score  524.0    NaN         NaN  NaN    4.977099     2.55409   
-message_malveillant       524      2         Non  377         NaN         NaN   
+    Statistiques descriptives des variables numériques :
 
-                         min     25%    50%     75%     max  
-date                     NaN     NaN    NaN     NaN     NaN  
-heure_envoi              0.0     6.0   13.0    18.0    23.0  
-longueur_message        60.0   301.5  423.0  523.25   896.0  
-nb_liens                 0.0     1.0    1.0     2.0     5.0  
-urgence_score            0.0     3.0    4.0     6.0    10.0  
-domaine_age_jours        1.0  217.25  516.0  951.25  5874.0  
-fautes_langue            0.0     1.0    2.0     3.0     6.0  
-expediteur_connu         0.0     0.0    0.0     1.0     1.0  
-piece_jointe             0.0     0.0    0.0     0.0     1.0  
-personnalisation_score   0.0     3.0    5.0     7.0    10.0  
-message_malveillant      NaN     NaN    NaN     NaN     NaN  
-```
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>count</th>
+      <th>mean</th>
+      <th>std</th>
+      <th>min</th>
+      <th>25%</th>
+      <th>50%</th>
+      <th>75%</th>
+      <th>max</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>heure_envoi</th>
+      <td>524.0</td>
+      <td>12.238550</td>
+      <td>6.889344</td>
+      <td>0.0</td>
+      <td>6.00</td>
+      <td>13.0</td>
+      <td>18.00</td>
+      <td>23.0</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>524.0</td>
+      <td>413.225191</td>
+      <td>162.774765</td>
+      <td>60.0</td>
+      <td>301.50</td>
+      <td>423.0</td>
+      <td>523.25</td>
+      <td>896.0</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>524.0</td>
+      <td>1.387405</td>
+      <td>1.165433</td>
+      <td>0.0</td>
+      <td>1.00</td>
+      <td>1.0</td>
+      <td>2.00</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>524.0</td>
+      <td>4.519084</td>
+      <td>2.373696</td>
+      <td>0.0</td>
+      <td>3.00</td>
+      <td>4.0</td>
+      <td>6.00</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>514.0</td>
+      <td>739.330739</td>
+      <td>761.682914</td>
+      <td>1.0</td>
+      <td>217.25</td>
+      <td>516.0</td>
+      <td>951.25</td>
+      <td>5874.0</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>524.0</td>
+      <td>2.020992</td>
+      <td>1.387440</td>
+      <td>0.0</td>
+      <td>1.00</td>
+      <td>2.0</td>
+      <td>3.00</td>
+      <td>6.0</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>524.0</td>
+      <td>0.440840</td>
+      <td>0.496962</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>1.00</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>524.0</td>
+      <td>0.232824</td>
+      <td>0.423035</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>524.0</td>
+      <td>4.977099</td>
+      <td>2.554090</td>
+      <td>0.0</td>
+      <td>3.00</td>
+      <td>5.0</td>
+      <td>7.00</td>
+      <td>10.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    Statistiques descriptives de toutes les variables :
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>count</th>
+      <th>unique</th>
+      <th>top</th>
+      <th>freq</th>
+      <th>mean</th>
+      <th>std</th>
+      <th>min</th>
+      <th>25%</th>
+      <th>50%</th>
+      <th>75%</th>
+      <th>max</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>date</th>
+      <td>524</td>
+      <td>231</td>
+      <td>2026-02-22</td>
+      <td>7</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>heure_envoi</th>
+      <td>524.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>12.23855</td>
+      <td>6.889344</td>
+      <td>0.0</td>
+      <td>6.0</td>
+      <td>13.0</td>
+      <td>18.0</td>
+      <td>23.0</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>524.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>413.225191</td>
+      <td>162.774765</td>
+      <td>60.0</td>
+      <td>301.5</td>
+      <td>423.0</td>
+      <td>523.25</td>
+      <td>896.0</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>524.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>1.387405</td>
+      <td>1.165433</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+      <td>2.0</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>524.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>4.519084</td>
+      <td>2.373696</td>
+      <td>0.0</td>
+      <td>3.0</td>
+      <td>4.0</td>
+      <td>6.0</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>514.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>739.330739</td>
+      <td>761.682914</td>
+      <td>1.0</td>
+      <td>217.25</td>
+      <td>516.0</td>
+      <td>951.25</td>
+      <td>5874.0</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>524.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>2.020992</td>
+      <td>1.38744</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>2.0</td>
+      <td>3.0</td>
+      <td>6.0</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>524.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0.44084</td>
+      <td>0.496962</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>524.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0.232824</td>
+      <td>0.423035</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>524.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>4.977099</td>
+      <td>2.55409</td>
+      <td>0.0</td>
+      <td>3.0</td>
+      <td>5.0</td>
+      <td>7.0</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>message_malveillant</th>
+      <td>524</td>
+      <td>2</td>
+      <td>Non</td>
+      <td>377</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
 
 ```python
 print("Nombre de valeurs distinctes par colonne :")
@@ -358,35 +744,97 @@ display(df_brut.nunique().sort_values(ascending=False).to_frame("valeurs_uniques
 
 print("Valeurs distinctes de la cible :")
 print(df_brut[TARGET].value_counts(dropna=False))
+
+
 ```
-```text
-Nombre de valeurs distinctes par colonne :
-```
-```text
-                        valeurs_uniques
-domaine_age_jours                   425
-longueur_message                    330
-date                                231
-heure_envoi                          24
-urgence_score                        11
-personnalisation_score               11
-fautes_langue                         7
-nb_liens                              6
-expediteur_connu                      2
-piece_jointe                          2
-message_malveillant                   2
-```
-```text
-Valeurs distinctes de la cible :
-message_malveillant
-Non    377
-Oui    147
-Name: count, dtype: int64
-```
+
+    Nombre de valeurs distinctes par colonne :
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>valeurs_uniques</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>425</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>330</td>
+    </tr>
+    <tr>
+      <th>date</th>
+      <td>231</td>
+    </tr>
+    <tr>
+      <th>heure_envoi</th>
+      <td>24</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>11</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>11</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>7</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>6</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>message_malveillant</th>
+      <td>2</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    Valeurs distinctes de la cible :
+    message_malveillant
+    Non    377
+    Oui    147
+    Name: count, dtype: int64
+
 
 ## 6. Diagnostic de qualité : valeurs manquantes et doublons
 
 Ce diagnostic porte sur le **fichier brut complet** : il sert à nettoyer avant la séparation train/test, pas à choisir un modèle. Aucune statistique inferentielle (corrélation, moyenne par classe) n'est tirée de cette étape.
+
+
 
 ```python
 tableau = pd.DataFrame({
@@ -400,73 +848,267 @@ nb_doublons = df_brut.duplicated().sum()
 print(f"Nombre de lignes dupliquées : {nb_doublons}")
 print("Nombre de lignes avant nettoyage :", len(df_brut))
 ```
-```text
-                        manquants  % manquants
-date                            0         0.00
-heure_envoi                     0         0.00
-longueur_message                0         0.00
-nb_liens                        0         0.00
-urgence_score                   0         0.00
-domaine_age_jours              10         1.91
-fautes_langue                   0         0.00
-expediteur_connu                0         0.00
-piece_jointe                    0         0.00
-personnalisation_score          0         0.00
-message_malveillant             0         0.00
-```
-```text
-Nombre de lignes dupliquées : 4
-Nombre de lignes avant nettoyage : 524
-```
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>manquants</th>
+      <th>% manquants</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>date</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>heure_envoi</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>10</td>
+      <td>1.91</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+    <tr>
+      <th>message_malveillant</th>
+      <td>0</td>
+      <td>0.00</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    Nombre de lignes dupliquées : 4
+    Nombre de lignes avant nettoyage : 524
+
+
 
 ```python
 # Afficher les doublons pour les examiner avant suppression
 display(df_brut[df_brut.duplicated(keep=False)].sort_values(by=list(df_brut.columns)).head(20))
 ```
-```text
-           date  heure_envoi  longueur_message  nb_liens  urgence_score  \
-71   2026-02-02           23               283         2              8   
-72   2026-02-02           23               283         2              8   
-224  2026-04-26           18               528         0              5   
-225  2026-04-26           18               528         0              5   
-330  2026-06-15            4               397         5              7   
-331  2026-06-15            4               397         5              7   
-458  2026-08-30           17               377         0              3   
-459  2026-08-30           17               377         0              3   
 
-     domaine_age_jours  fautes_langue  expediteur_connu  piece_jointe  \
-71               574.0              3                 0             0   
-72               574.0              3                 0             0   
-224              789.0              0                 1             0   
-225              789.0              0                 1             0   
-330              278.0              1                 1             1   
-331              278.0              1                 1             1   
-458              627.0              3                 1             0   
-459              627.0              3                 1             0   
 
-     personnalisation_score message_malveillant  
-71                        4                 Non  
-72                        4                 Non  
-224                       9                 Non  
-225                       9                 Non  
-330                       2                 Oui  
-331                       2                 Oui  
-458                       4                 Non  
-459                       4                 Non  
-```
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>date</th>
+      <th>heure_envoi</th>
+      <th>longueur_message</th>
+      <th>nb_liens</th>
+      <th>urgence_score</th>
+      <th>domaine_age_jours</th>
+      <th>fautes_langue</th>
+      <th>expediteur_connu</th>
+      <th>piece_jointe</th>
+      <th>personnalisation_score</th>
+      <th>message_malveillant</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>71</th>
+      <td>2026-02-02</td>
+      <td>23</td>
+      <td>283</td>
+      <td>2</td>
+      <td>8</td>
+      <td>574.0</td>
+      <td>3</td>
+      <td>0</td>
+      <td>0</td>
+      <td>4</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <th>72</th>
+      <td>2026-02-02</td>
+      <td>23</td>
+      <td>283</td>
+      <td>2</td>
+      <td>8</td>
+      <td>574.0</td>
+      <td>3</td>
+      <td>0</td>
+      <td>0</td>
+      <td>4</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <th>224</th>
+      <td>2026-04-26</td>
+      <td>18</td>
+      <td>528</td>
+      <td>0</td>
+      <td>5</td>
+      <td>789.0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>9</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <th>225</th>
+      <td>2026-04-26</td>
+      <td>18</td>
+      <td>528</td>
+      <td>0</td>
+      <td>5</td>
+      <td>789.0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>9</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <th>330</th>
+      <td>2026-06-15</td>
+      <td>4</td>
+      <td>397</td>
+      <td>5</td>
+      <td>7</td>
+      <td>278.0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>2</td>
+      <td>Oui</td>
+    </tr>
+    <tr>
+      <th>331</th>
+      <td>2026-06-15</td>
+      <td>4</td>
+      <td>397</td>
+      <td>5</td>
+      <td>7</td>
+      <td>278.0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>2</td>
+      <td>Oui</td>
+    </tr>
+    <tr>
+      <th>458</th>
+      <td>2026-08-30</td>
+      <td>17</td>
+      <td>377</td>
+      <td>0</td>
+      <td>3</td>
+      <td>627.0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>0</td>
+      <td>4</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <th>459</th>
+      <td>2026-08-30</td>
+      <td>17</td>
+      <td>377</td>
+      <td>0</td>
+      <td>3</td>
+      <td>627.0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>0</td>
+      <td>4</td>
+      <td>Non</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 
 ## 7. Nettoyage des données
 
 Le cahier des charges indique que le fichier contient quelques doublons exacts et une colonne numérique avec des valeurs manquantes. On supprime les **4 doublons exacts** (524 → 520 lignes). L'imputation par médiane est faite **dans le pipeline**, donc calculée sur le train de chaque pli : elle ne transmet aucune information issue du test.
 
+
+
 ```python
 # Copie de travail
 df = df_brut.copy()
 print('Lignes avant :', len(df))
+
 ```
-```text
-Lignes avant : 524
-```
+
+    Lignes avant : 524
+
+
 
 ```python
 # Suppression des doublons
@@ -474,49 +1116,177 @@ nb_avant = len(df)
 df = df.drop_duplicates().copy()
 print('Doublons supprimés :', nb_avant - len(df))
 print('Lignes après :', len(df))
+
 ```
-```text
-Doublons supprimés : 4
-Lignes après : 520
-```
+
+    Doublons supprimés : 4
+    Lignes après : 520
+
+
 
 ```python
 # Valeurs manquantes
 df.isna().sum().to_frame('manquants')
+
 ```
-```text
-                        manquants
-date                            0
-heure_envoi                     0
-longueur_message                0
-nb_liens                        0
-urgence_score                   0
-domaine_age_jours              10
-fautes_langue                   0
-expediteur_connu                0
-piece_jointe                    0
-personnalisation_score          0
-message_malveillant             0
-```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>manquants</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>date</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>heure_envoi</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>10</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>message_malveillant</th>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
 
 ```python
 # Types de données
 df.dtypes.to_frame('type')
+
 ```
-```text
-                           type
-date                        str
-heure_envoi               int64
-longueur_message          int64
-nb_liens                  int64
-urgence_score             int64
-domaine_age_jours       float64
-fautes_langue             int64
-expediteur_connu          int64
-piece_jointe              int64
-personnalisation_score    int64
-message_malveillant         str
-```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>date</th>
+      <td>str</td>
+    </tr>
+    <tr>
+      <th>heure_envoi</th>
+      <td>int64</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>int64</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>int64</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>int64</td>
+    </tr>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>float64</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>int64</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>int64</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>int64</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>int64</td>
+    </tr>
+    <tr>
+      <th>message_malveillant</th>
+      <td>str</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
 
 ```python
 # Vérification simple : la colonne à prédire existe
@@ -527,27 +1297,69 @@ if df[colonne_cible].isna().any():
     print('Attention : valeurs manquantes dans la colonne à prédire.')
 else:
     print('OK : la colonne à prédire est présente et complète.')
+
 ```
-```text
-OK : la colonne à prédire est présente et complète.
-```
+
+    OK : la colonne à prédire est présente et complète.
+
+
 
 ```python
 # Répartition de la colonne à prédire
 df[colonne_cible].value_counts().to_frame('effectif')
+
 ```
-```text
-                     effectif
-message_malveillant          
-Non                       374
-Oui                       146
-```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>effectif</th>
+    </tr>
+    <tr>
+      <th>message_malveillant</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Non</th>
+      <td>374</td>
+    </tr>
+    <tr>
+      <th>Oui</th>
+      <td>146</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
 
 ## 8. Analyse exploratoire — distribution de la cible
 
 Les graphiques servent à comprendre le phénomène avant de modéliser ; ils ne prouvent aucune causalité.
 
 **Point clé anti-fuite.** La séparation train/test est définie **ici**, avant les graphiques, et réutilisée telle quelle au §11. Toutes les statistiques descriptives de l'EDA (répartition, distributions, corrélations, moyennes par classe) portent donc sur les **416 messages du train**. Le test (104 messages) reste vierge jusqu'au §16.
+
+
 
 ```python
 # Séparation définie AVANT toute statistique descriptive (réutilisée au §11).
@@ -581,22 +1393,64 @@ plt.show()
 
 print("Effectifs et pourcentages (train) :")
 display(pd.DataFrame({"effectif": counts, "pourcentage_%": pct.round(2)}))
+
 ```
-```text
-Train = 416 messages | Test réservé = 104 messages (non analysé ici)
-```
-```text
-<Figure size 800x500 with 1 Axes>
-```
-```text
-Effectifs et pourcentages (train) :
-```
-```text
-                     effectif  pourcentage_%
-message_malveillant                         
-Non                       299          71.88
-Oui                       117          28.12
-```
+
+    Train = 416 messages | Test réservé = 104 messages (non analysé ici)
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_24_1.png)
+    
+
+
+    Effectifs et pourcentages (train) :
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>effectif</th>
+      <th>pourcentage_%</th>
+    </tr>
+    <tr>
+      <th>message_malveillant</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Non</th>
+      <td>299</td>
+      <td>71.88</td>
+    </tr>
+    <tr>
+      <th>Oui</th>
+      <td>117</td>
+      <td>28.12</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 
 ### Interprétation — Histogrammes (variables numériques)
 
@@ -616,6 +1470,8 @@ Oui                       117          28.12
 
 **Exemples dataset** : `domaine_age_jours` faible peut signaler domaine récent ; `urgence_score` élevé = pression ; `fautes_langue` souvent faible avec IA.
 
+
+
 ```python
 # Graphique 2 : distributions des variables numériques (train seul)
 colonnes_num = df_train_eda.select_dtypes(include=np.number).columns.tolist()
@@ -626,10 +1482,14 @@ if colonnes_num:
     plt.show()
 else:
     print("Aucune variable numérique.")
+
 ```
-```text
-<Figure size 1400x1000 with 9 Axes>
-```
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_26_0.png)
+    
+
 
 ### Médianes par classe — valeurs réelles sur le train
 
@@ -654,6 +1514,7 @@ Le notebook affiche les **moyennes** puis les **médianes** par classe, calculé
 - **Fautes de langue** : aucune différence. C'est le résultat le plus intéressant pour un projet « IA et confiance numérique » : les faux messages écrits par une IA sont souvent sans fautes, donc la faute d'orthographe ne permet plus de détecter le phishing. C'est une explication possible ; il faudrait la confirmer avec la façon dont le dataset a été construit.
 
 **Conclusion** : aucune variable ne suffit seule, sauf peut-être l'âge du domaine. Classement : `domaine_age_jours > urgence_score > nb_liens > longueur_message > heure_envoi > fautes_langue`.
+
 
 ```python
 # Colonnes à ignorer (calendrier) et cible — graphiques sur le TRAIN seul
@@ -688,34 +1549,54 @@ for col in cols_a_tracer:
     ax.tick_params(axis="x", rotation=25)
     plt.tight_layout()
     plt.show()
+
 ```
-```text
-Variables tracées : ['nb_liens', 'urgence_score', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
-```
-```text
-<Figure size 900x450 with 1 Axes>
-```
-```text
-<Figure size 900x450 with 1 Axes>
-```
-```text
-<Figure size 900x450 with 1 Axes>
-```
-```text
-<Figure size 900x450 with 1 Axes>
-```
-```text
-<Figure size 900x450 with 1 Axes>
-```
-```text
-<Figure size 900x450 with 1 Axes>
-```
+
+    Variables tracées : ['nb_liens', 'urgence_score', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_28_1.png)
+    
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_28_2.png)
+    
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_28_3.png)
+    
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_28_4.png)
+    
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_28_5.png)
+    
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_28_6.png)
+    
+
 
 ## 9. Corrélations sur le train seul (416 messages)
 
 La corrélation de Pearson mesure une association **linéaire** entre variables numériques. Elle ne s'applique pas directement aux catégories nominales. On encode temporairement la cible pour visualiser une association exploratoire, mais le code numérique des classes n'est pas une distance naturelle. Une corrélation ne signifie jamais causalité.
 
 **Pourquoi le train seul ?** Ces corrélations peuvent guider le feature engineering. Si elles étaient calculées sur les 520 lignes, les 104 messages du test influenceraient indirectement les choix de modélisation : c'est une fuite. Le graphique ci-dessous porte donc uniquement sur `df_train_eda` (416 lignes).
+
 
 ### Comment lire une matrice de corrélation
 
@@ -730,6 +1611,8 @@ La corrélation de Pearson mesure une association **linéaire** entre variables 
 - Repères indicatifs : `|r| < 0,3` faible, `0,3 à 0,7` modéré, `> 0,7` fort.
 
 **4. La couleur** : rouge = positif, bleu = négatif, gris clair = proche de 0.
+
+
 
 ```python
 # Corrélations entre les variables explicatives ET la cible — TRAIN SEUL
@@ -771,71 +1654,248 @@ display(corr.round(3))
 # La dernière ligne / colonne donne l'association de chaque variable avec la cible.
 display(corr["cible (Oui = 1)"].drop("cible (Oui = 1)").sort_values(key=abs, ascending=False).round(3).to_frame())
 print("Nombre de lignes utilisées :", len(df_train_eda), "(test exclu)")
-```
-```text
-                        heure_envoi  longueur_message  nb_liens  \
-heure_envoi                   1.000            -0.051     0.001   
-longueur_message             -0.051             1.000     0.006   
-nb_liens                      0.001             0.006     1.000   
-urgence_score                 0.050            -0.054     0.006   
-domaine_age_jours             0.002            -0.000     0.050   
-fautes_langue                -0.001             0.033    -0.046   
-expediteur_connu             -0.016             0.010     0.025   
-piece_jointe                  0.005             0.008     0.051   
-personnalisation_score       -0.010            -0.045    -0.030   
-cible (Oui = 1)              -0.027            -0.114     0.244   
 
-                        urgence_score  domaine_age_jours  fautes_langue  \
-heure_envoi                     0.050              0.002         -0.001   
-longueur_message               -0.054             -0.000          0.033   
-nb_liens                        0.006              0.050         -0.046   
-urgence_score                   1.000             -0.009         -0.008   
-domaine_age_jours              -0.009              1.000         -0.001   
-fautes_langue                  -0.008             -0.001          1.000   
-expediteur_connu                0.069              0.089         -0.002   
-piece_jointe                   -0.017             -0.010         -0.022   
-personnalisation_score         -0.028              0.028          0.024   
-cible (Oui = 1)                 0.285             -0.322         -0.022   
+```
 
-                        expediteur_connu  piece_jointe  \
-heure_envoi                       -0.016         0.005   
-longueur_message                   0.010         0.008   
-nb_liens                           0.025         0.051   
-urgence_score                      0.069        -0.017   
-domaine_age_jours                  0.089        -0.010   
-fautes_langue                     -0.002        -0.022   
-expediteur_connu                   1.000        -0.067   
-piece_jointe                      -0.067         1.000   
-personnalisation_score            -0.051         0.033   
-cible (Oui = 1)                   -0.278         0.060   
 
-                        personnalisation_score  cible (Oui = 1)  
-heure_envoi                             -0.010           -0.027  
-longueur_message                        -0.045           -0.114  
-nb_liens                                -0.030            0.244  
-urgence_score                           -0.028            0.285  
-domaine_age_jours                        0.028           -0.322  
-fautes_langue                            0.024           -0.022  
-expediteur_connu                        -0.051           -0.278  
-piece_jointe                             0.033            0.060  
-personnalisation_score                   1.000            0.133  
-cible (Oui = 1)                          0.133            1.000  
-```
-```text
-                        cible (Oui = 1)
-domaine_age_jours                -0.322
-urgence_score                     0.285
-expediteur_connu                 -0.278
-nb_liens                          0.244
-personnalisation_score            0.133
-longueur_message                 -0.114
-piece_jointe                      0.060
-heure_envoi                      -0.027
-fautes_langue                    -0.022
-```
-```text
-Nombre de lignes utilisées : 416 (test exclu)
-```
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_31_0.png)
+    
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>heure_envoi</th>
+      <th>longueur_message</th>
+      <th>nb_liens</th>
+      <th>urgence_score</th>
+      <th>domaine_age_jours</th>
+      <th>fautes_langue</th>
+      <th>expediteur_connu</th>
+      <th>piece_jointe</th>
+      <th>personnalisation_score</th>
+      <th>cible (Oui = 1)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>heure_envoi</th>
+      <td>1.000</td>
+      <td>-0.051</td>
+      <td>0.001</td>
+      <td>0.050</td>
+      <td>0.002</td>
+      <td>-0.001</td>
+      <td>-0.016</td>
+      <td>0.005</td>
+      <td>-0.010</td>
+      <td>-0.027</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>-0.051</td>
+      <td>1.000</td>
+      <td>0.006</td>
+      <td>-0.054</td>
+      <td>-0.000</td>
+      <td>0.033</td>
+      <td>0.010</td>
+      <td>0.008</td>
+      <td>-0.045</td>
+      <td>-0.114</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>0.001</td>
+      <td>0.006</td>
+      <td>1.000</td>
+      <td>0.006</td>
+      <td>0.050</td>
+      <td>-0.046</td>
+      <td>0.025</td>
+      <td>0.051</td>
+      <td>-0.030</td>
+      <td>0.244</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>0.050</td>
+      <td>-0.054</td>
+      <td>0.006</td>
+      <td>1.000</td>
+      <td>-0.009</td>
+      <td>-0.008</td>
+      <td>0.069</td>
+      <td>-0.017</td>
+      <td>-0.028</td>
+      <td>0.285</td>
+    </tr>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>0.002</td>
+      <td>-0.000</td>
+      <td>0.050</td>
+      <td>-0.009</td>
+      <td>1.000</td>
+      <td>-0.001</td>
+      <td>0.089</td>
+      <td>-0.010</td>
+      <td>0.028</td>
+      <td>-0.322</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>-0.001</td>
+      <td>0.033</td>
+      <td>-0.046</td>
+      <td>-0.008</td>
+      <td>-0.001</td>
+      <td>1.000</td>
+      <td>-0.002</td>
+      <td>-0.022</td>
+      <td>0.024</td>
+      <td>-0.022</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>-0.016</td>
+      <td>0.010</td>
+      <td>0.025</td>
+      <td>0.069</td>
+      <td>0.089</td>
+      <td>-0.002</td>
+      <td>1.000</td>
+      <td>-0.067</td>
+      <td>-0.051</td>
+      <td>-0.278</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>0.005</td>
+      <td>0.008</td>
+      <td>0.051</td>
+      <td>-0.017</td>
+      <td>-0.010</td>
+      <td>-0.022</td>
+      <td>-0.067</td>
+      <td>1.000</td>
+      <td>0.033</td>
+      <td>0.060</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>-0.010</td>
+      <td>-0.045</td>
+      <td>-0.030</td>
+      <td>-0.028</td>
+      <td>0.028</td>
+      <td>0.024</td>
+      <td>-0.051</td>
+      <td>0.033</td>
+      <td>1.000</td>
+      <td>0.133</td>
+    </tr>
+    <tr>
+      <th>cible (Oui = 1)</th>
+      <td>-0.027</td>
+      <td>-0.114</td>
+      <td>0.244</td>
+      <td>0.285</td>
+      <td>-0.322</td>
+      <td>-0.022</td>
+      <td>-0.278</td>
+      <td>0.060</td>
+      <td>0.133</td>
+      <td>1.000</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>cible (Oui = 1)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>-0.322</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>0.285</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>-0.278</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>0.244</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>0.133</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>-0.114</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>0.060</td>
+    </tr>
+    <tr>
+      <th>heure_envoi</th>
+      <td>-0.027</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>-0.022</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    Nombre de lignes utilisées : 416 (test exclu)
+
 
 ### Lecture de la matrice — valeurs réelles sur le train
 
@@ -845,6 +1905,8 @@ Nombre de lignes utilisées : 416 (test exclu)
 - ⚠️ La cible est binaire : le coefficient est une **corrélation point-bisérielle** (cas particulier de Pearson). Il se lit comme un lien linéaire, jamais comme une causalité ; encoder `Oui = 1` sert seulement à visualiser, le modèle ne voit jamais la cible dans `X`.
 - Cette matrice ne mesure que le linéaire : le **SVM RBF** peut capter des interactions qu'elle ne montre pas.
 - Ces valeurs sont calculées **sur le train** : elles ne dépendent pas des 104 messages du test.
+
+
 
 ```python
 # Association de chaque variable avec la cible (Oui = 1) — TRAIN SEUL
@@ -873,26 +1935,83 @@ ax.set_title(f"Association avec la cible (Oui = 1) — train seul ({len(df_train
 ax.set_xlabel("coefficient r")
 plt.tight_layout()
 plt.show()
+
 ```
-```text
-                        corrélation_avec_Oui
-domaine_age_jours                     -0.322
-urgence_score                          0.285
-expediteur_connu                      -0.278
-nb_liens                               0.244
-personnalisation_score                 0.133
-longueur_message                      -0.114
-piece_jointe                           0.060
-heure_envoi                           -0.027
-fautes_langue                         -0.022
-```
-```text
-<Figure size 800x450 with 1 Axes>
-```
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>corrélation_avec_Oui</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>-0.322</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>0.285</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>-0.278</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>0.244</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>0.133</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>-0.114</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>0.060</td>
+    </tr>
+    <tr>
+      <th>heure_envoi</th>
+      <td>-0.027</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>-0.022</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_33_1.png)
+    
+
 
 **🔎 À retenir pour la modélisation** : les quatre signaux les plus associés à la malveillance sont l'**âge du domaine**, l'**urgence**, l'**expéditeur inconnu** et le **nombre de liens**. `personnalisation_score` (+0,133) et `longueur_message` (−0,114) restent faibles ; `piece_jointe`, `heure_envoi` et `fautes_langue` sont pratiquement nuls.
 
 C'est cohérent avec l'effet de l'IA générative : un message bien écrit, personnalisé et sans faute peut parfaitement être malveillant. Aucune variable ne décide seule ; le modèle les combine. Corrélation ≠ causalité, et rien ici ne prouve qu'une variable *cause* le phishing.
+
 
 ### Comment lire le tableau des moyennes par classe
 
@@ -912,6 +2031,8 @@ Ce tableau compare la moyenne des variables pour les messages `Non` (normaux) et
 
 **À retenir** : `domaine_age_jours`, `urgence_score`, `expediteur_connu` et `nb_liens` sont les signaux les plus marqués. Une moyenne ne suffit jamais à décider seule.
 
+
+
 ```python
 # Comparaison exploratoire des variables numériques par classe — TRAIN SEUL
 if num_features_eda:
@@ -922,37 +2043,162 @@ if num_features_eda:
     medianes_par_classe = df_train_eda.groupby(TARGET, observed=False)[num_features_eda].median().T
     print("Médianes par classe (train) :")
     display(medianes_par_classe.round(1))
+
 ```
-```text
-Moyennes par classe (train) :
-```
-```text
-message_malveillant        Non     Oui
-heure_envoi              12.31   11.89
-longueur_message        424.32  382.06
-nb_liens                  1.20    1.83
-urgence_score             4.15    5.63
-domaine_age_jours       886.66  340.72
-fautes_langue             2.04    1.97
-expediteur_connu          0.54    0.23
-piece_jointe              0.22    0.27
-personnalisation_score    4.81    5.58
-```
-```text
-Médianes par classe (train) :
-```
-```text
-message_malveillant       Non    Oui
-heure_envoi              12.0   13.0
-longueur_message        432.0  397.0
-nb_liens                  1.0    2.0
-urgence_score             4.0    6.0
-domaine_age_jours       650.0  234.5
-fautes_langue             2.0    2.0
-expediteur_connu          1.0    0.0
-piece_jointe              0.0    0.0
-personnalisation_score    5.0    6.0
-```
+
+    Moyennes par classe (train) :
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>message_malveillant</th>
+      <th>Non</th>
+      <th>Oui</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>heure_envoi</th>
+      <td>12.31</td>
+      <td>11.89</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>424.32</td>
+      <td>382.06</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>1.20</td>
+      <td>1.83</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>4.15</td>
+      <td>5.63</td>
+    </tr>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>886.66</td>
+      <td>340.72</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>2.04</td>
+      <td>1.97</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>0.54</td>
+      <td>0.23</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>0.22</td>
+      <td>0.27</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>4.81</td>
+      <td>5.58</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    Médianes par classe (train) :
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>message_malveillant</th>
+      <th>Non</th>
+      <th>Oui</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>heure_envoi</th>
+      <td>12.0</td>
+      <td>13.0</td>
+    </tr>
+    <tr>
+      <th>longueur_message</th>
+      <td>432.0</td>
+      <td>397.0</td>
+    </tr>
+    <tr>
+      <th>nb_liens</th>
+      <td>1.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>urgence_score</th>
+      <td>4.0</td>
+      <td>6.0</td>
+    </tr>
+    <tr>
+      <th>domaine_age_jours</th>
+      <td>650.0</td>
+      <td>234.5</td>
+    </tr>
+    <tr>
+      <th>fautes_langue</th>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>expediteur_connu</th>
+      <td>1.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>piece_jointe</th>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>personnalisation_score</th>
+      <td>5.0</td>
+      <td>6.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 
 ## 10. Construction de `X` et `y`
 
@@ -960,6 +2206,8 @@ personnalisation_score    5.0    6.0
 - `X` contient les variables explicatives.
 - Les colonnes de date et de semaine sont exclues : sans justification métier, elles feraient apprendre le calendrier plutôt que le phénomène.
 - La cible est explicitement retirée de `X` pour éviter la fuite de données.
+
+
 
 ```python
 # Retirer la colonne à prédire et la date
@@ -969,11 +2217,13 @@ y = df['message_malveillant'].copy()
 
 print('Colonnes utilisées (X) :', X.columns.tolist())
 print('Colonne à prédire (y) : message_malveillant')
+
 ```
-```text
-Colonnes utilisées (X) : ['heure_envoi', 'longueur_message', 'nb_liens', 'urgence_score', 'domaine_age_jours', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
-Colonne à prédire (y) : message_malveillant
-```
+
+    Colonnes utilisées (X) : ['heure_envoi', 'longueur_message', 'nb_liens', 'urgence_score', 'domaine_age_jours', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
+    Colonne à prédire (y) : message_malveillant
+
+
 
 ```python
 # Colonnes numériques et catégorielles
@@ -982,17 +2232,20 @@ features_cat = X.select_dtypes(exclude='number').columns.tolist()
 
 print('Numériques :', features_num)
 print('Catégorielles :', features_cat)
+
 ```
-```text
-Numériques : ['heure_envoi', 'longueur_message', 'nb_liens', 'urgence_score', 'domaine_age_jours', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
-Catégorielles : []
-```
+
+    Numériques : ['heure_envoi', 'longueur_message', 'nb_liens', 'urgence_score', 'domaine_age_jours', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
+    Catégorielles : []
+
 
 ## 11. Séparation train / test
 
 La séparation a déjà été définie au §8 pour permettre une EDA sans fuite. On la matérialise ici en `X_train` / `X_test` : **les mêmes indices** sont réutilisés, ce qu'un `assert` vérifie. `stratify=y` conserve la proportion de chaque classe.
 
 Le test ne sera pas utilisé pour ajuster les transformations, choisir un modèle ni régler le seuil.
+
+
 
 ```python
 X_train, X_test, y_train, y_test = train_test_split(
@@ -1012,29 +2265,32 @@ print("\nRépartition des classes — train (%)")
 display((y_train.value_counts(normalize=True) * 100).round(2))
 print("\nRépartition des classes — test (%)")
 display((y_test.value_counts(normalize=True) * 100).round(2))
-```
-```text
-Train : (416, 9) (416,)
-Test  : (104, 9) (104,)
 
-Répartition des classes — train (%)
 ```
-```text
-message_malveillant
-Non    71.88
-Oui    28.12
-Name: proportion, dtype: float64
-```
-```text
 
-Répartition des classes — test (%)
-```
-```text
-message_malveillant
-Non    72.12
-Oui    27.88
-Name: proportion, dtype: float64
-```
+    Train : (416, 9) (416,)
+    Test  : (104, 9) (104,)
+    
+    Répartition des classes — train (%)
+
+
+
+    message_malveillant
+    Non    71.88
+    Oui    28.12
+    Name: proportion, dtype: float64
+
+
+    
+    Répartition des classes — test (%)
+
+
+
+    message_malveillant
+    Non    72.12
+    Oui    27.88
+    Name: proportion, dtype: float64
+
 
 ## 12. Prétraitement avec `ColumnTransformer`
 
@@ -1043,6 +2299,8 @@ Name: proportion, dtype: float64
 - `handle_unknown="ignore"` traite une catégorie inconnue rencontrée plus tard.
 
 Les transformations sont intégrées aux pipelines : elles sont ajustées **uniquement sur l'entraînement de chaque pli**, jamais sur le test.
+
+
 
 ```python
 transformations = []
@@ -1060,36 +2318,1009 @@ preprocesseur = ColumnTransformer(transformers=transformations, remainder="drop"
 print("Préprocesseur prêt.")
 display(preprocesseur)
 ```
-```text
-Préprocesseur prêt.
-```
-```text
-ColumnTransformer(transformers=[('numerique',
-                                 Pipeline(steps=[('imputation',
-                                                  SimpleImputer(strategy='median')),
-                                                 ('standardisation',
+
+    Préprocesseur prêt.
+
+
+
+<style>#sk-container-id-1 {
+  /* Definition of color scheme common for light and dark mode */
+  --sklearn-color-text: #000;
+  --sklearn-color-text-muted: #666;
+  --sklearn-color-line: gray;
+  /* Definition of color scheme for unfitted estimators */
+  --sklearn-color-unfitted-level-0: #fff5e6;
+  --sklearn-color-unfitted-level-1: #f6e4d2;
+  --sklearn-color-unfitted-level-2: #ffe0b3;
+  --sklearn-color-unfitted-level-3: chocolate;
+  /* Definition of color scheme for fitted estimators */
+  --sklearn-color-fitted-level-0: #f0f8ff;
+  --sklearn-color-fitted-level-1: #d4ebff;
+  --sklearn-color-fitted-level-2: #b3dbfd;
+  --sklearn-color-fitted-level-3: cornflowerblue;
+}
+
+#sk-container-id-1.light {
+  /* Specific color for light theme */
+  --sklearn-color-text-on-default-background: black;
+  --sklearn-color-background: white;
+  --sklearn-color-border-box: black;
+  --sklearn-color-icon: #696969;
+}
+
+#sk-container-id-1.dark {
+  --sklearn-color-text-on-default-background: white;
+  --sklearn-color-background: #111;
+  --sklearn-color-border-box: white;
+  --sklearn-color-icon: #878787;
+}
+
+#sk-container-id-1 {
+  color: var(--sklearn-color-text);
+}
+
+#sk-container-id-1 pre {
+  padding: 0;
+}
+
+#sk-container-id-1 input.sk-hidden--visually {
+  border: 0;
+  clip: rect(1px 1px 1px 1px);
+  clip: rect(1px, 1px, 1px, 1px);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+#sk-container-id-1 div.sk-dashed-wrapped {
+  border: 1px dashed var(--sklearn-color-line);
+  margin: 0 0.4em 0.5em 0.4em;
+  box-sizing: border-box;
+  padding-bottom: 0.4em;
+  background-color: var(--sklearn-color-background);
+}
+
+#sk-container-id-1 div.sk-container {
+  /* jupyter's `normalize.less` sets `[hidden] { display: none; }`
+     but bootstrap.min.css set `[hidden] { display: none !important; }`
+     so we also need the `!important` here to be able to override the
+     default hidden behavior on the sphinx rendered scikit-learn.org.
+     See: https://github.com/scikit-learn/scikit-learn/issues/21755 */
+  display: inline-block !important;
+  position: relative;
+}
+
+#sk-container-id-1 div.sk-text-repr-fallback {
+  display: none;
+}
+
+div.sk-parallel-item,
+div.sk-serial,
+div.sk-item {
+  /* draw centered vertical line to link estimators */
+  background-image: linear-gradient(var(--sklearn-color-text-on-default-background), var(--sklearn-color-text-on-default-background));
+  background-size: 2px 100%;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+
+/* Parallel-specific style estimator block */
+
+#sk-container-id-1 div.sk-parallel-item::after {
+  content: "";
+  width: 100%;
+  border-bottom: 2px solid var(--sklearn-color-text-on-default-background);
+  flex-grow: 1;
+}
+
+#sk-container-id-1 div.sk-parallel {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background-color: var(--sklearn-color-background);
+  position: relative;
+}
+
+#sk-container-id-1 div.sk-parallel-item {
+  display: flex;
+  flex-direction: column;
+}
+
+#sk-container-id-1 div.sk-parallel-item:first-child::after {
+  align-self: flex-end;
+  width: 50%;
+}
+
+#sk-container-id-1 div.sk-parallel-item:last-child::after {
+  align-self: flex-start;
+  width: 50%;
+}
+
+#sk-container-id-1 div.sk-parallel-item:only-child::after {
+  width: 0;
+}
+
+/* Serial-specific style estimator block */
+
+#sk-container-id-1 div.sk-serial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--sklearn-color-background);
+  padding-right: 1em;
+  padding-left: 1em;
+}
+
+
+/* Toggleable style: style used for estimator/Pipeline/ColumnTransformer box that is
+clickable and can be expanded/collapsed.
+- Pipeline and ColumnTransformer use this feature and define the default style
+- Estimators will overwrite some part of the style using the `sk-estimator` class
+*/
+
+/* Pipeline and ColumnTransformer style (default) */
+
+#sk-container-id-1 div.sk-toggleable {
+  /* Default theme specific background. It is overwritten whether we have a
+  specific estimator or a Pipeline/ColumnTransformer */
+  background-color: var(--sklearn-color-background);
+}
+
+/* Toggleable label */
+#sk-container-id-1 label.sk-toggleable__label {
+  cursor: pointer;
+  display: flex;
+  width: 100%;
+  margin-bottom: 0;
+  padding: 0.5em;
+  box-sizing: border-box;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+}
+
+#sk-container-id-1 label.sk-toggleable__label .caption {
+  font-size: 0.6rem;
+  font-weight: lighter;
+  color: var(--sklearn-color-text-muted);
+}
+
+#sk-container-id-1 label.sk-toggleable__label-arrow:before {
+  /* Arrow on the left of the label */
+  content: "▸";
+  float: left;
+  margin-right: 0.25em;
+  color: var(--sklearn-color-icon);
+}
+
+#sk-container-id-1 label.sk-toggleable__label-arrow:hover:before {
+  color: var(--sklearn-color-text);
+}
+
+/* Toggleable content - dropdown */
+
+#sk-container-id-1 div.sk-toggleable__content {
+  display: none;
+  text-align: left;
+  /* unfitted */
+  background-color: var(--sklearn-color-unfitted-level-0);
+}
+
+#sk-container-id-1 div.sk-toggleable__content.fitted {
+  /* fitted */
+  background-color: var(--sklearn-color-fitted-level-0);
+}
+
+#sk-container-id-1 div.sk-toggleable__content pre {
+  margin: 0.2em;
+  border-radius: 0.25em;
+  color: var(--sklearn-color-text);
+  /* unfitted */
+  background-color: var(--sklearn-color-unfitted-level-0);
+}
+
+#sk-container-id-1 div.sk-toggleable__content.fitted pre {
+  /* unfitted */
+  background-color: var(--sklearn-color-fitted-level-0);
+}
+
+#sk-container-id-1 input.sk-toggleable__control:checked~div.sk-toggleable__content {
+  /* Expand drop-down */
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+#sk-container-id-1 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {
+  content: "▾";
+}
+
+/* Pipeline/ColumnTransformer-specific style */
+
+#sk-container-id-1 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {
+  color: var(--sklearn-color-text);
+  background-color: var(--sklearn-color-unfitted-level-2);
+}
+
+#sk-container-id-1 div.sk-label.fitted input.sk-toggleable__control:checked~label.sk-toggleable__label {
+  background-color: var(--sklearn-color-fitted-level-2);
+}
+
+/* Estimator-specific style */
+
+/* Colorize estimator box */
+#sk-container-id-1 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {
+  /* unfitted */
+  background-color: var(--sklearn-color-unfitted-level-2);
+}
+
+#sk-container-id-1 div.sk-estimator.fitted input.sk-toggleable__control:checked~label.sk-toggleable__label {
+  /* fitted */
+  background-color: var(--sklearn-color-fitted-level-2);
+}
+
+#sk-container-id-1 div.sk-label label.sk-toggleable__label,
+#sk-container-id-1 div.sk-label label {
+  /* The background is the default theme color */
+  color: var(--sklearn-color-text-on-default-background);
+}
+
+/* On hover, darken the color of the background */
+#sk-container-id-1 div.sk-label:hover label.sk-toggleable__label {
+  color: var(--sklearn-color-text);
+  background-color: var(--sklearn-color-unfitted-level-2);
+}
+
+/* Label box, darken color on hover, fitted */
+#sk-container-id-1 div.sk-label.fitted:hover label.sk-toggleable__label.fitted {
+  color: var(--sklearn-color-text);
+  background-color: var(--sklearn-color-fitted-level-2);
+}
+
+/* Estimator label */
+
+#sk-container-id-1 div.sk-label label {
+  font-family: monospace;
+  font-weight: bold;
+  line-height: 1.2em;
+}
+
+#sk-container-id-1 div.sk-label-container {
+  text-align: center;
+}
+
+/* Estimator-specific */
+#sk-container-id-1 div.sk-estimator {
+  font-family: monospace;
+  border: 1px dotted var(--sklearn-color-border-box);
+  border-radius: 0.25em;
+  box-sizing: border-box;
+  margin-bottom: 0.5em;
+  /* unfitted */
+  background-color: var(--sklearn-color-unfitted-level-0);
+}
+
+#sk-container-id-1 div.sk-estimator.fitted {
+  /* fitted */
+  background-color: var(--sklearn-color-fitted-level-0);
+}
+
+/* on hover */
+#sk-container-id-1 div.sk-estimator:hover {
+  /* unfitted */
+  background-color: var(--sklearn-color-unfitted-level-2);
+}
+
+#sk-container-id-1 div.sk-estimator.fitted:hover {
+  /* fitted */
+  background-color: var(--sklearn-color-fitted-level-2);
+}
+
+/* Specification for estimator info (e.g. "i" and "?") */
+
+/* Common style for "i" and "?" */
+
+.sk-estimator-doc-link,
+a:link.sk-estimator-doc-link,
+a:visited.sk-estimator-doc-link {
+  float: right;
+  font-size: smaller;
+  line-height: 1em;
+  font-family: monospace;
+  background-color: var(--sklearn-color-unfitted-level-0);
+  border-radius: 1em;
+  height: 1em;
+  width: 1em;
+  text-decoration: none !important;
+  margin-left: 0.5em;
+  text-align: center;
+  /* unfitted */
+  border: var(--sklearn-color-unfitted-level-3) 1pt solid;
+  color: var(--sklearn-color-unfitted-level-3);
+}
+
+.sk-estimator-doc-link.fitted,
+a:link.sk-estimator-doc-link.fitted,
+a:visited.sk-estimator-doc-link.fitted {
+  /* fitted */
+  background-color: var(--sklearn-color-fitted-level-0);
+  border: var(--sklearn-color-fitted-level-3) 1pt solid;
+  color: var(--sklearn-color-fitted-level-3);
+}
+
+/* On hover */
+div.sk-estimator:hover .sk-estimator-doc-link:hover,
+.sk-estimator-doc-link:hover,
+div.sk-label-container:hover .sk-estimator-doc-link:hover,
+.sk-estimator-doc-link:hover {
+  /* unfitted */
+  background-color: var(--sklearn-color-unfitted-level-3);
+  border: var(--sklearn-color-fitted-level-0) 1pt solid;
+  color: var(--sklearn-color-unfitted-level-0);
+  text-decoration: none;
+}
+
+div.sk-estimator.fitted:hover .sk-estimator-doc-link.fitted:hover,
+.sk-estimator-doc-link.fitted:hover,
+div.sk-label-container:hover .sk-estimator-doc-link.fitted:hover,
+.sk-estimator-doc-link.fitted:hover {
+  /* fitted */
+  background-color: var(--sklearn-color-fitted-level-3);
+  border: var(--sklearn-color-fitted-level-0) 1pt solid;
+  color: var(--sklearn-color-fitted-level-0);
+  text-decoration: none;
+}
+
+/* Span, style for the box shown on hovering the info icon */
+.sk-estimator-doc-link span {
+  display: none;
+  z-index: 9999;
+  position: relative;
+  font-weight: normal;
+  right: .2ex;
+  padding: .5ex;
+  margin: .5ex;
+  width: min-content;
+  min-width: 20ex;
+  max-width: 50ex;
+  color: var(--sklearn-color-text);
+  box-shadow: 2pt 2pt 4pt #999;
+  /* unfitted */
+  background: var(--sklearn-color-unfitted-level-0);
+  border: .5pt solid var(--sklearn-color-unfitted-level-3);
+}
+
+.sk-estimator-doc-link.fitted span {
+  /* fitted */
+  background: var(--sklearn-color-fitted-level-0);
+  border: var(--sklearn-color-fitted-level-3);
+}
+
+.sk-estimator-doc-link:hover span {
+  display: block;
+}
+
+/* "?"-specific style due to the `<a>` HTML tag */
+
+#sk-container-id-1 a.estimator_doc_link {
+  float: right;
+  font-size: 1rem;
+  line-height: 1em;
+  font-family: monospace;
+  background-color: var(--sklearn-color-unfitted-level-0);
+  border-radius: 1rem;
+  height: 1rem;
+  width: 1rem;
+  text-decoration: none;
+  /* unfitted */
+  color: var(--sklearn-color-unfitted-level-1);
+  border: var(--sklearn-color-unfitted-level-1) 1pt solid;
+}
+
+#sk-container-id-1 a.estimator_doc_link.fitted {
+  /* fitted */
+  background-color: var(--sklearn-color-fitted-level-0);
+  border: var(--sklearn-color-fitted-level-1) 1pt solid;
+  color: var(--sklearn-color-fitted-level-1);
+}
+
+/* On hover */
+#sk-container-id-1 a.estimator_doc_link:hover {
+  /* unfitted */
+  background-color: var(--sklearn-color-unfitted-level-3);
+  color: var(--sklearn-color-background);
+  text-decoration: none;
+}
+
+#sk-container-id-1 a.estimator_doc_link.fitted:hover {
+  /* fitted */
+  background-color: var(--sklearn-color-fitted-level-3);
+}
+
+.estimator-table {
+    font-family: monospace;
+}
+
+.estimator-table summary {
+    padding: .5rem;
+    cursor: pointer;
+}
+
+.estimator-table summary::marker {
+    font-size: 0.7rem;
+}
+
+.estimator-table details[open] {
+    padding-left: 0.1rem;
+    padding-right: 0.1rem;
+    padding-bottom: 0.3rem;
+}
+
+.estimator-table .parameters-table {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: 0;
+}
+
+.estimator-table .parameters-table tr:nth-child(odd) {
+    background-color: #fff;
+}
+
+.estimator-table .parameters-table tr:nth-child(even) {
+    background-color: #f6f6f6;
+}
+
+.estimator-table .parameters-table tr:hover {
+    background-color: #e0e0e0;
+}
+
+.estimator-table table td {
+    border: 1px solid rgba(106, 105, 104, 0.232);
+}
+
+/*
+    `table td`is set in notebook with right text-align.
+    We need to overwrite it.
+*/
+.estimator-table table td.param {
+    text-align: left;
+    position: relative;
+    padding: 0;
+}
+
+.user-set td {
+    color:rgb(255, 94, 0);
+    text-align: left !important;
+}
+
+.user-set td.value {
+    color:rgb(255, 94, 0);
+    background-color: transparent;
+}
+
+.default td {
+    color: black;
+    text-align: left !important;
+}
+
+.user-set td i,
+.default td i {
+    color: black;
+}
+
+/*
+    Styles for parameter documentation links
+    We need styling for visited so jupyter doesn't overwrite it
+*/
+a.param-doc-link,
+a.param-doc-link:link,
+a.param-doc-link:visited {
+    text-decoration: underline dashed;
+    text-underline-offset: .3em;
+    color: inherit;
+    display: block;
+    padding: .5em;
+}
+
+/* "hack" to make the entire area of the cell containing the link clickable */
+a.param-doc-link::before {
+    position: absolute;
+    content: "";
+    inset: 0;
+}
+
+.param-doc-description {
+    display: none;
+    position: absolute;
+    z-index: 9999;
+    left: 0;
+    padding: .5ex;
+    margin-left: 1.5em;
+    color: var(--sklearn-color-text);
+    box-shadow: .3em .3em .4em #999;
+    width: max-content;
+    text-align: left;
+    max-height: 10em;
+    overflow-y: auto;
+
+    /* unfitted */
+    background: var(--sklearn-color-unfitted-level-0);
+    border: thin solid var(--sklearn-color-unfitted-level-3);
+}
+
+/* Fitted state for parameter tooltips */
+.fitted .param-doc-description {
+    /* fitted */
+    background: var(--sklearn-color-fitted-level-0);
+    border: thin solid var(--sklearn-color-fitted-level-3);
+}
+
+.param-doc-link:hover .param-doc-description {
+    display: block;
+}
+
+.copy-paste-icon {
+    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NDggNTEyIj48IS0tIUZvbnQgQXdlc29tZSBGcmVlIDYuNy4yIGJ5IEBmb250YXdlc29tZSAtIGh0dHBzOi8vZm9udGF3ZXNvbWUuY29tIExpY2Vuc2UgLSBodHRwczovL2ZvbnRhd2Vzb21lLmNvbS9saWNlbnNlL2ZyZWUgQ29weXJpZ2h0IDIwMjUgRm9udGljb25zLCBJbmMuLS0+PHBhdGggZD0iTTIwOCAwTDMzMi4xIDBjMTIuNyAwIDI0LjkgNS4xIDMzLjkgMTQuMWw2Ny45IDY3LjljOSA5IDE0LjEgMjEuMiAxNC4xIDMzLjlMNDQ4IDMzNmMwIDI2LjUtMjEuNSA0OC00OCA0OGwtMTkyIDBjLTI2LjUgMC00OC0yMS41LTQ4LTQ4bDAtMjg4YzAtMjYuNSAyMS41LTQ4IDQ4LTQ4ek00OCAxMjhsODAgMCAwIDY0LTY0IDAgMCAyNTYgMTkyIDAgMC0zMiA2NCAwIDAgNDhjMCAyNi41LTIxLjUgNDgtNDggNDhMNDggNTEyYy0yNi41IDAtNDgtMjEuNS00OC00OEwwIDE3NmMwLTI2LjUgMjEuNS00OCA0OC00OHoiLz48L3N2Zz4=);
+    background-repeat: no-repeat;
+    background-size: 14px 14px;
+    background-position: 0;
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+</style><body><div id="sk-container-id-1" class="sk-top-container"><div class="sk-text-repr-fallback"><pre>ColumnTransformer(transformers=[(&#x27;numerique&#x27;,
+                                 Pipeline(steps=[(&#x27;imputation&#x27;,
+                                                  SimpleImputer(strategy=&#x27;median&#x27;)),
+                                                 (&#x27;standardisation&#x27;,
                                                   StandardScaler())]),
-                                 ['heure_envoi', 'longueur_message', 'nb_liens',
-                                  'urgence_score', 'domaine_age_jours',
-                                  'fautes_langue', 'expediteur_connu',
-                                  'piece_jointe', 'personnalisation_score'])])
-```
+                                 [&#x27;heure_envoi&#x27;, &#x27;longueur_message&#x27;, &#x27;nb_liens&#x27;,
+                                  &#x27;urgence_score&#x27;, &#x27;domaine_age_jours&#x27;,
+                                  &#x27;fautes_langue&#x27;, &#x27;expediteur_connu&#x27;,
+                                  &#x27;piece_jointe&#x27;, &#x27;personnalisation_score&#x27;])])</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br />On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class="sk-container" hidden><div class="sk-item sk-dashed-wrapped"><div class="sk-label-container"><div class="sk-label  sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-1" type="checkbox" ><label for="sk-estimator-id-1" class="sk-toggleable__label  sk-toggleable__label-arrow"><div><div>ColumnTransformer</div></div><div><a class="sk-estimator-doc-link " rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html">?<span>Documentation for ColumnTransformer</span></a><span class="sk-estimator-doc-link ">i<span>Not fitted</span></span></div></label><div class="sk-toggleable__content " data-param-prefix="">
+        <div class="estimator-table">
+            <details>
+                <summary>Parameters</summary>
+                <table class="parameters-table">
+                  <tbody>
+
+        <tr class="user-set">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('transformers',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html#:~:text=transformers,-list%20of%20tuples">
+            transformers
+            <span class="param-doc-description">transformers: list of tuples<br><br>List of (name, transformer, columns) tuples specifying the<br>transformer objects to be applied to subsets of the data.<br><br>name : str<br>    Like in Pipeline and FeatureUnion, this allows the transformer and<br>    its parameters to be set using ``set_params`` and searched in grid<br>    search.<br>transformer : {'drop', 'passthrough'} or estimator<br>    Estimator must support :term:`fit` and :term:`transform`.<br>    Special-cased strings 'drop' and 'passthrough' are accepted as<br>    well, to indicate to drop the columns or to pass them through<br>    untransformed, respectively.<br>columns :  str, array-like of str, int, array-like of int,                 array-like of bool, slice or callable<br>    Indexes the data on its second axis. Integers are interpreted as<br>    positional columns, while strings can reference DataFrame columns<br>    by name.  A scalar string or int should be used where<br>    ``transformer`` expects X to be a 1d array-like (vector),<br>    otherwise a 2d array will be passed to the transformer.<br>    A callable is passed the input data `X` and can return any of the<br>    above. To select multiple columns by name or dtype, you can use<br>    :obj:`make_column_selector`.</span>
+        </a>
+    </td>
+            <td class="value">[(&#x27;numerique&#x27;, ...)]</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('remainder',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html#:~:text=remainder,-%7B%27drop%27%2C%20%27passthrough%27%7D%20or%20estimator%2C%20default%3D%27drop%27">
+            remainder
+            <span class="param-doc-description">remainder: {'drop', 'passthrough'} or estimator, default='drop'<br><br>By default, only the specified columns in `transformers` are<br>transformed and combined in the output, and the non-specified<br>columns are dropped. (default of ``'drop'``).<br>By specifying ``remainder='passthrough'``, all remaining columns that<br>were not specified in `transformers`, but present in the data passed<br>to `fit` will be automatically passed through. This subset of columns<br>is concatenated with the output of the transformers. For dataframes,<br>extra columns not seen during `fit` will be excluded from the output<br>of `transform`.<br>By setting ``remainder`` to be an estimator, the remaining<br>non-specified columns will use the ``remainder`` estimator. The<br>estimator must support :term:`fit` and :term:`transform`.<br>Note that using this feature requires that the DataFrame columns<br>input at :term:`fit` and :term:`transform` have identical order.</span>
+        </a>
+    </td>
+            <td class="value">&#x27;drop&#x27;</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('sparse_threshold',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html#:~:text=sparse_threshold,-float%2C%20default%3D0.3">
+            sparse_threshold
+            <span class="param-doc-description">sparse_threshold: float, default=0.3<br><br>If the output of the different transformers contains sparse matrices,<br>these will be stacked as a sparse matrix if the overall density is<br>lower than this value. Use ``sparse_threshold=0`` to always return<br>dense.  When the transformed output consists of all dense data, the<br>stacked result will be dense, and this keyword will be ignored.</span>
+        </a>
+    </td>
+            <td class="value">0.3</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('n_jobs',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html#:~:text=n_jobs,-int%2C%20default%3DNone">
+            n_jobs
+            <span class="param-doc-description">n_jobs: int, default=None<br><br>Number of jobs to run in parallel.<br>``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.<br>``-1`` means using all processors. See :term:`Glossary <n_jobs>`<br>for more details.</span>
+        </a>
+    </td>
+            <td class="value">None</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('transformer_weights',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html#:~:text=transformer_weights,-dict%2C%20default%3DNone">
+            transformer_weights
+            <span class="param-doc-description">transformer_weights: dict, default=None<br><br>Multiplicative weights for features per transformer. The output of the<br>transformer is multiplied by these weights. Keys are transformer names,<br>values the weights.</span>
+        </a>
+    </td>
+            <td class="value">None</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('verbose',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html#:~:text=verbose,-bool%2C%20default%3DFalse">
+            verbose
+            <span class="param-doc-description">verbose: bool, default=False<br><br>If True, the time elapsed while fitting each transformer will be<br>printed as it is completed.</span>
+        </a>
+    </td>
+            <td class="value">False</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('verbose_feature_names_out',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html#:~:text=verbose_feature_names_out,-bool%2C%20str%20or%20Callable%5B%5Bstr%2C%20str%5D%2C%20str%5D%2C%20default%3DTrue">
+            verbose_feature_names_out
+            <span class="param-doc-description">verbose_feature_names_out: bool, str or Callable[[str, str], str], default=True<br><br>- If True, :meth:`ColumnTransformer.get_feature_names_out` will prefix<br>  all feature names with the name of the transformer that generated that<br>  feature. It is equivalent to setting<br>  `verbose_feature_names_out="{transformer_name}__{feature_name}"`.<br>- If False, :meth:`ColumnTransformer.get_feature_names_out` will not<br>  prefix any feature names and will error if feature names are not<br>  unique.<br>- If ``Callable[[str, str], str]``,<br>  :meth:`ColumnTransformer.get_feature_names_out` will rename all the features<br>  using the name of the transformer. The first argument of the callable is the<br>  transformer name and the second argument is the feature name. The returned<br>  string will be the new feature name.<br>- If ``str``, it must be a string ready for formatting. The given string will<br>  be formatted using two field names: ``transformer_name`` and ``feature_name``.<br>  e.g. ``"{feature_name}__{transformer_name}"``. See :meth:`str.format` method<br>  from the standard library for more info.<br><br>.. versionadded:: 1.0<br><br>.. versionchanged:: 1.6<br>    `verbose_feature_names_out` can be a callable or a string to be formatted.</span>
+        </a>
+    </td>
+            <td class="value">True</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('force_int_remainder_cols',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.compose.ColumnTransformer.html#:~:text=force_int_remainder_cols,-bool%2C%20default%3DFalse">
+            force_int_remainder_cols
+            <span class="param-doc-description">force_int_remainder_cols: bool, default=False<br><br>This parameter has no effect.<br><br>.. note::<br>    If you do not access the list of columns for the remainder columns<br>    in the `transformers_` fitted attribute, you do not need to set<br>    this parameter.<br><br>.. versionadded:: 1.5<br><br>.. versionchanged:: 1.7<br>   The default value for `force_int_remainder_cols` will change from<br>   `True` to `False` in version 1.7.<br><br>.. deprecated:: 1.7<br>   `force_int_remainder_cols` is deprecated and will be removed in 1.9.</span>
+        </a>
+    </td>
+            <td class="value">&#x27;deprecated&#x27;</td>
+        </tr>
+
+                  </tbody>
+                </table>
+            </details>
+        </div>
+    </div></div></div><div class="sk-parallel"><div class="sk-parallel-item"><div class="sk-item"><div class="sk-label-container"><div class="sk-label  sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-2" type="checkbox" ><label for="sk-estimator-id-2" class="sk-toggleable__label  sk-toggleable__label-arrow"><div><div>numerique</div></div></label><div class="sk-toggleable__content " data-param-prefix="numerique__"><pre>[&#x27;heure_envoi&#x27;, &#x27;longueur_message&#x27;, &#x27;nb_liens&#x27;, &#x27;urgence_score&#x27;, &#x27;domaine_age_jours&#x27;, &#x27;fautes_langue&#x27;, &#x27;expediteur_connu&#x27;, &#x27;piece_jointe&#x27;, &#x27;personnalisation_score&#x27;]</pre></div></div></div><div class="sk-serial"><div class="sk-item"><div class="sk-serial"><div class="sk-item"><div class="sk-estimator  sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-3" type="checkbox" ><label for="sk-estimator-id-3" class="sk-toggleable__label  sk-toggleable__label-arrow"><div><div>SimpleImputer</div></div><div><a class="sk-estimator-doc-link " rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.impute.SimpleImputer.html">?<span>Documentation for SimpleImputer</span></a></div></label><div class="sk-toggleable__content " data-param-prefix="numerique__imputation__">
+        <div class="estimator-table">
+            <details>
+                <summary>Parameters</summary>
+                <table class="parameters-table">
+                  <tbody>
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('missing_values',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.impute.SimpleImputer.html#:~:text=missing_values,-int%2C%20float%2C%20str%2C%20np.nan%2C%20None%20or%20pandas.NA%2C%20default%3Dnp.nan">
+            missing_values
+            <span class="param-doc-description">missing_values: int, float, str, np.nan, None or pandas.NA, default=np.nan<br><br>The placeholder for the missing values. All occurrences of<br>`missing_values` will be imputed. For pandas' dataframes with<br>nullable integer dtypes with missing values, `missing_values`<br>can be set to either `np.nan` or `pd.NA`.</span>
+        </a>
+    </td>
+            <td class="value">nan</td>
+        </tr>
+
+
+        <tr class="user-set">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('strategy',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.impute.SimpleImputer.html#:~:text=strategy,-str%20or%20Callable%2C%20default%3D%27mean%27">
+            strategy
+            <span class="param-doc-description">strategy: str or Callable, default='mean'<br><br>The imputation strategy.<br><br>- If "mean", then replace missing values using the mean along<br>  each column. Can only be used with numeric data.<br>- If "median", then replace missing values using the median along<br>  each column. Can only be used with numeric data.<br>- If "most_frequent", then replace missing using the most frequent<br>  value along each column. Can be used with strings or numeric data.<br>  If there is more than one such value, only the smallest is returned.<br>- If "constant", then replace missing values with fill_value. Can be<br>  used with strings or numeric data.<br>- If an instance of Callable, then replace missing values using the<br>  scalar statistic returned by running the callable over a dense 1d<br>  array containing non-missing values of each column.<br><br>.. versionadded:: 0.20<br>   strategy="constant" for fixed value imputation.<br><br>.. versionadded:: 1.5<br>   strategy=callable for custom value imputation.</span>
+        </a>
+    </td>
+            <td class="value">&#x27;median&#x27;</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('fill_value',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.impute.SimpleImputer.html#:~:text=fill_value,-str%20or%20numerical%20value%2C%20default%3DNone">
+            fill_value
+            <span class="param-doc-description">fill_value: str or numerical value, default=None<br><br>When strategy == "constant", `fill_value` is used to replace all<br>occurrences of missing_values. For string or object data types,<br>`fill_value` must be a string.<br>If `None`, `fill_value` will be 0 when imputing numerical<br>data and "missing_value" for strings or object data types.</span>
+        </a>
+    </td>
+            <td class="value">None</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('copy',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.impute.SimpleImputer.html#:~:text=copy,-bool%2C%20default%3DTrue">
+            copy
+            <span class="param-doc-description">copy: bool, default=True<br><br>If True, a copy of X will be created. If False, imputation will<br>be done in-place whenever possible. Note that, in the following cases,<br>a new copy will always be made, even if `copy=False`:<br><br>- If `X` is not an array of floating values;<br>- If `X` is encoded as a CSR matrix;<br>- If `add_indicator=True`.</span>
+        </a>
+    </td>
+            <td class="value">True</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('add_indicator',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.impute.SimpleImputer.html#:~:text=add_indicator,-bool%2C%20default%3DFalse">
+            add_indicator
+            <span class="param-doc-description">add_indicator: bool, default=False<br><br>If True, a :class:`MissingIndicator` transform will stack onto output<br>of the imputer's transform. This allows a predictive estimator<br>to account for missingness despite imputation. If a feature has no<br>missing values at fit/train time, the feature won't appear on<br>the missing indicator even if there are missing values at<br>transform/test time.</span>
+        </a>
+    </td>
+            <td class="value">False</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('keep_empty_features',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.impute.SimpleImputer.html#:~:text=keep_empty_features,-bool%2C%20default%3DFalse">
+            keep_empty_features
+            <span class="param-doc-description">keep_empty_features: bool, default=False<br><br>If True, features that consist exclusively of missing values when<br>`fit` is called are returned in results when `transform` is called.<br>The imputed value is always `0` except when `strategy="constant"`<br>in which case `fill_value` will be used instead.<br><br>.. versionadded:: 1.2</span>
+        </a>
+    </td>
+            <td class="value">False</td>
+        </tr>
+
+                  </tbody>
+                </table>
+            </details>
+        </div>
+    </div></div></div><div class="sk-item"><div class="sk-estimator  sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-4" type="checkbox" ><label for="sk-estimator-id-4" class="sk-toggleable__label  sk-toggleable__label-arrow"><div><div>StandardScaler</div></div><div><a class="sk-estimator-doc-link " rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.preprocessing.StandardScaler.html">?<span>Documentation for StandardScaler</span></a></div></label><div class="sk-toggleable__content " data-param-prefix="numerique__standardisation__">
+        <div class="estimator-table">
+            <details>
+                <summary>Parameters</summary>
+                <table class="parameters-table">
+                  <tbody>
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('copy',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.preprocessing.StandardScaler.html#:~:text=copy,-bool%2C%20default%3DTrue">
+            copy
+            <span class="param-doc-description">copy: bool, default=True<br><br>If False, try to avoid a copy and do inplace scaling instead.<br>This is not guaranteed to always work inplace; e.g. if the data is<br>not a NumPy array or scipy.sparse CSR matrix, a copy may still be<br>returned.</span>
+        </a>
+    </td>
+            <td class="value">True</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('with_mean',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.preprocessing.StandardScaler.html#:~:text=with_mean,-bool%2C%20default%3DTrue">
+            with_mean
+            <span class="param-doc-description">with_mean: bool, default=True<br><br>If True, center the data before scaling.<br>This does not work (and will raise an exception) when attempted on<br>sparse matrices, because centering them entails building a dense<br>matrix which in common use cases is likely to be too large to fit in<br>memory.</span>
+        </a>
+    </td>
+            <td class="value">True</td>
+        </tr>
+
+
+        <tr class="default">
+            <td><i class="copy-paste-icon"
+                 onclick="copyToClipboard('with_std',
+                          this.parentElement.nextElementSibling)"
+            ></i></td>
+            <td class="param">
+        <a class="param-doc-link"
+            rel="noreferrer" target="_blank" href="https://scikit-learn.org/1.8/modules/generated/sklearn.preprocessing.StandardScaler.html#:~:text=with_std,-bool%2C%20default%3DTrue">
+            with_std
+            <span class="param-doc-description">with_std: bool, default=True<br><br>If True, scale the data to unit variance (or equivalently,<br>unit standard deviation).</span>
+        </a>
+    </td>
+            <td class="value">True</td>
+        </tr>
+
+                  </tbody>
+                </table>
+            </details>
+        </div>
+    </div></div></div></div></div></div></div></div></div></div></div></div><script>function copyToClipboard(text, element) {
+    // Get the parameter prefix from the closest toggleable content
+    const toggleableContent = element.closest('.sk-toggleable__content');
+    const paramPrefix = toggleableContent ? toggleableContent.dataset.paramPrefix : '';
+    const fullParamName = paramPrefix ? `${paramPrefix}${text}` : text;
+
+    const originalStyle = element.style;
+    const computedStyle = window.getComputedStyle(element);
+    const originalWidth = computedStyle.width;
+    const originalHTML = element.innerHTML.replace('Copied!', '');
+
+    navigator.clipboard.writeText(fullParamName)
+        .then(() => {
+            element.style.width = originalWidth;
+            element.style.color = 'green';
+            element.innerHTML = "Copied!";
+
+            setTimeout(() => {
+                element.innerHTML = originalHTML;
+                element.style = originalStyle;
+            }, 2000);
+        })
+        .catch(err => {
+            console.error('Failed to copy:', err);
+            element.style.color = 'red';
+            element.innerHTML = "Failed!";
+            setTimeout(() => {
+                element.innerHTML = originalHTML;
+                element.style = originalStyle;
+            }, 2000);
+        });
+    return false;
+}
+
+document.querySelectorAll('.copy-paste-icon').forEach(function(element) {
+    const toggleableContent = element.closest('.sk-toggleable__content');
+    const paramPrefix = toggleableContent ? toggleableContent.dataset.paramPrefix : '';
+    const paramName = element.parentElement.nextElementSibling
+        .textContent.trim().split(' ')[0];
+    const fullParamName = paramPrefix ? `${paramPrefix}${paramName}` : paramName;
+
+    element.setAttribute('title', fullParamName);
+});
+
+
+/**
+ * Adapted from Skrub
+ * https://github.com/skrub-data/skrub/blob/403466d1d5d4dc76a7ef569b3f8228db59a31dc3/skrub/_reporting/_data/templates/report.js#L789
+ * @returns "light" or "dark"
+ */
+function detectTheme(element) {
+    const body = document.querySelector('body');
+
+    // Check VSCode theme
+    const themeKindAttr = body.getAttribute('data-vscode-theme-kind');
+    const themeNameAttr = body.getAttribute('data-vscode-theme-name');
+
+    if (themeKindAttr && themeNameAttr) {
+        const themeKind = themeKindAttr.toLowerCase();
+        const themeName = themeNameAttr.toLowerCase();
+
+        if (themeKind.includes("dark") || themeName.includes("dark")) {
+            return "dark";
+        }
+        if (themeKind.includes("light") || themeName.includes("light")) {
+            return "light";
+        }
+    }
+
+    // Check Jupyter theme
+    if (body.getAttribute('data-jp-theme-light') === 'false') {
+        return 'dark';
+    } else if (body.getAttribute('data-jp-theme-light') === 'true') {
+        return 'light';
+    }
+
+    // Guess based on a parent element's color
+    const color = window.getComputedStyle(element.parentNode, null).getPropertyValue('color');
+    const match = color.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*$/i);
+    if (match) {
+        const [r, g, b] = [
+            parseFloat(match[1]),
+            parseFloat(match[2]),
+            parseFloat(match[3])
+        ];
+
+        // https://en.wikipedia.org/wiki/HSL_and_HSV#Lightness
+        const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        if (luma > 180) {
+            // If the text is very bright we have a dark theme
+            return 'dark';
+        }
+        if (luma < 75) {
+            // If the text is very dark we have a light theme
+            return 'light';
+        }
+        // Otherwise fall back to the next heuristic.
+    }
+
+    // Fallback to system preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+
+function forceTheme(elementId) {
+    const estimatorElement = document.querySelector(`#${elementId}`);
+    if (estimatorElement === null) {
+        console.error(`Element with id ${elementId} not found.`);
+    } else {
+        const theme = detectTheme(estimatorElement);
+        estimatorElement.classList.add(theme);
+    }
+}
+
+forceTheme('sk-container-id-1');</script></body>
+
 
 ## 13. Processus Machine Learning du projet
 
 Schéma identique à celui de l'application Streamlit. Le jeu de test n'est consulté qu'à l'étape 8, après la sélection du modèle et du seuil sur le train : aucune fuite de données, pas de one-hot encoding (les 9 variables explicatives sont numériques).
+
+
 
 ```python
 from IPython.display import Image as IPyImage, display
 display(IPyImage(filename="artefacts/processus_phishing_ia.png"))
 print("Règle clé : imputation, standardisation, modèle et seuils appris sur le train seul.")
 ```
-```text
-<IPython.core.display.Image object>
-```
-```text
-Règle clé : imputation, standardisation, modèle et seuils appris sur le train seul.
-```
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_45_0.png)
+    
+
+
+    Règle clé : imputation, standardisation, modèle et seuils appris sur le train seul.
+
 
 ## 14. Modèles candidats
 
@@ -1101,6 +3332,8 @@ Trois hypothèses complémentaires sont comparées :
 3. **SVM noyau RBF** : séparation à marge maximale, efficace sur un petit jeu numérique propre et stable en validation croisée ; `probability=True` fournit les probabilités.
 
 Les modèles et prétraitements sont réunis dans des pipelines identiques.
+
+
 
 ```python
 modeles = {
@@ -1131,15 +3364,17 @@ pipelines = {
 
 print("Modèles préparés :", list(pipelines.keys()))
 ```
-```text
-Modèles préparés : ['Regression_logistique', 'Random_Forest', 'SVM_RBF']
-```
+
+    Modèles préparés : ['Regression_logistique', 'Random_Forest', 'SVM_RBF']
+
 
 ## 15. Sélection du modèle sur le train — validation croisée 5-fold
 
 C'est **ici** que se joue la sélection, avant toute lecture du test. Chaque pipeline est évalué par `StratifiedKFold(5)` sur les 416 messages du train : moyennes et écarts-types portent sur 5 scores de pli.
 
 **Protocole exact** : 5 plis stratifiés, `shuffle=True`, `random_state=42`, soit **5 entraînements par modèle**. Il ne faut pas le confondre avec la CV **5×5 répétée** du §17 (25 entraînements, seeds 42–46), qui sert à apprendre le seuil et à mesurer la stabilité : les deux jeux de valeurs ne sont pas comparables.
+
+
 
 ```python
 min_classe_train = y_train.value_counts().min()
@@ -1172,27 +3407,70 @@ if n_splits >= 2:
 else:
     print("Validation croisée stratifiée impossible : effectif insuffisant dans une classe.")
 ```
-```text
-Protocole : CV 5-fold simple (5 entraînements par modèle, seed 42) — train seul
-À ne pas confondre avec la CV 5x5 répétée du §17 (25 entraînements) : valeurs non comparables.
-```
-```text
-                  Modele  Accuracy_CV_moyenne  F1_macro_CV_moyenne  \
-1          Random_Forest                0.839                0.791   
-0  Regression_logistique                0.810                0.785   
-2                SVM_RBF                0.815                0.784   
 
-   F1_macro_CV_ecart_type  
-1                   0.051  
-0                   0.067  
-2                   0.018  
-```
+    Protocole : CV 5-fold simple (5 entraînements par modèle, seed 42) — train seul
+    À ne pas confondre avec la CV 5x5 répétée du §17 (25 entraînements) : valeurs non comparables.
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Modele</th>
+      <th>Accuracy_CV_moyenne</th>
+      <th>F1_macro_CV_moyenne</th>
+      <th>F1_macro_CV_ecart_type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1</th>
+      <td>Random_Forest</td>
+      <td>0.839</td>
+      <td>0.791</td>
+      <td>0.051</td>
+    </tr>
+    <tr>
+      <th>0</th>
+      <td>Regression_logistique</td>
+      <td>0.810</td>
+      <td>0.785</td>
+      <td>0.067</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>SVM_RBF</td>
+      <td>0.815</td>
+      <td>0.784</td>
+      <td>0.018</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 
 ## 16. Comparaison descriptive des trois modèles de référence sur le test (a posteriori)
 
 ⚠️ **Lis cette section comme un constat, pas comme une sélection.** Le modèle et le seuil ont été choisis **avant**, sur le train seul : validation croisée au §15, puis protocole du §17. Les trois modèles ci-dessous sont entraînés sur le train et évalués une fois sur le test, pour **documenter** leur comportement au seuil par défaut 0,50. Aucun choix du notebook ne repose sur ce tableau.
 
 Cette lecture unique du test est assumée : elle ne sert qu'à la comparaison descriptive et à l'illustration pédagogique ; le chiffre de performance du modèle déployé est produit au §17–§18, avec le seuil appris sur le train.
+
+
 
 ```python
 import numpy as np
@@ -1243,31 +3521,103 @@ for nom, pipeline in pipelines.items():
 resultats_df = pd.DataFrame(resultats).sort_values("F1_macro", ascending=False)
 display(resultats_df.round(3))
 ```
-```text
-Entraînement terminé : Regression_logistique
-```
-```text
-Entraînement terminé : Random_Forest
-```
-```text
-Entraînement terminé : SVM_RBF
-```
-```text
-                  Modele  Accuracy  Precision_macro  Recall_macro  F1_macro  \
-1          Random_Forest     0.798            0.752         0.723     0.734   
-0  Regression_logistique     0.721            0.692         0.733     0.694   
-2                SVM_RBF     0.721            0.692         0.733     0.694   
 
-     AUC  Average_precision    MAE   RMSE     R2  MAE_proba  RMSE_proba  \
-1  0.866              0.698  0.202  0.449 -0.004      0.288       0.365   
-0  0.832              0.656  0.279  0.528 -0.387      0.298       0.417   
-2  0.834              0.633  0.279  0.528 -0.387      0.286       0.386   
+    Entraînement terminé : Regression_logistique
 
-   R2_proba  
-1     0.337  
-0     0.134  
-2     0.259  
-```
+
+    Entraînement terminé : Random_Forest
+
+
+    Entraînement terminé : SVM_RBF
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Modele</th>
+      <th>Accuracy</th>
+      <th>Precision_macro</th>
+      <th>Recall_macro</th>
+      <th>F1_macro</th>
+      <th>AUC</th>
+      <th>Average_precision</th>
+      <th>MAE</th>
+      <th>RMSE</th>
+      <th>R2</th>
+      <th>MAE_proba</th>
+      <th>RMSE_proba</th>
+      <th>R2_proba</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1</th>
+      <td>Random_Forest</td>
+      <td>0.798</td>
+      <td>0.752</td>
+      <td>0.723</td>
+      <td>0.734</td>
+      <td>0.866</td>
+      <td>0.698</td>
+      <td>0.202</td>
+      <td>0.449</td>
+      <td>-0.004</td>
+      <td>0.288</td>
+      <td>0.365</td>
+      <td>0.337</td>
+    </tr>
+    <tr>
+      <th>0</th>
+      <td>Regression_logistique</td>
+      <td>0.721</td>
+      <td>0.692</td>
+      <td>0.733</td>
+      <td>0.694</td>
+      <td>0.832</td>
+      <td>0.656</td>
+      <td>0.279</td>
+      <td>0.528</td>
+      <td>-0.387</td>
+      <td>0.298</td>
+      <td>0.417</td>
+      <td>0.134</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>SVM_RBF</td>
+      <td>0.721</td>
+      <td>0.692</td>
+      <td>0.733</td>
+      <td>0.694</td>
+      <td>0.834</td>
+      <td>0.633</td>
+      <td>0.279</td>
+      <td>0.528</td>
+      <td>-0.387</td>
+      <td>0.286</td>
+      <td>0.386</td>
+      <td>0.259</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 
 ## 17. Modèle retenu : `log_age`, interactions et seuil appris sur le train
 
@@ -1285,6 +3635,7 @@ Les limitations mesurées sur le modèle de référence sont corrigées ici :
 
 Le pipeline reçoit les **colonnes brutes** de `X` (celles du formulaire Streamlit) et fait la transformation en interne : l'application et le notebook utilisent exactement le même code. Le test n'est utilisé qu'**une seule fois**, à la fin, pour mesurer — jamais pour choisir modèle ou seuil.
 
+
 ### 17.1 OOF, matrice de validation croisée et protocoles
 
 **OOF** = *Out-Of-Fold* (« hors pli »). Avec `StratifiedKFold(5)` répété 5 fois, on entraîne 25 modèles ; chaque modèle prédit uniquement les lignes qu'il n'a jamais vues. On moyenne ces probabilités pour obtenir **une probabilité OOF par ligne du train**. La matrice de confusion qui en découle porte donc sur les **416 lignes du train**, pas sur les 104 du test.
@@ -1301,6 +3652,8 @@ Le premier découpe une seule fois ; le second moyenne 5 découpages différents
 Ici, les hyperparamètres sont fixés a priori (pas de recherche en grille) : la CV sert à la stabilité et au seuil, pas à une sélection d'hyperparamètres. Elle n'est donc pas imbriquée, et cette estimation reste légèrement optimiste — c'est une limite à connaître.
 
 Au seuil retenu **0,21**, la matrice OOF du train est : **TN = 182 · FP = 117 · FN = 3 · TP = 114**. Le coût correspondant est `5·3 + 117 = 132` ; le coût minimal de 128 est atteint à 0,20 (`5·2 + 118 = 128`), d'où le plateau 0,20–0,22 et la médiane 0,21. On ne peut pas obtenir `FN = 0` et `FP = 0` simultanément : l'AUC de validation croisée vaut **0,909** (0,911 sur les probabilités moyennées), pas 1. Baisser le seuil réduit les FN mais augmente fortement les FP (à 0,20 : FN = 2, FP = 118). La matrice du test, au §18.4, est l'évaluation finale indépendante.
+
+
 
 ```python
 # =====================================================================
@@ -1554,59 +3907,133 @@ meta_app = {
         "test": "évalué une seule fois, jamais utilisé pour choisir modèle ou seuil",
     },
 }
+
 ```
-```text
-CV 5x5 répétée — AUC en validation croisée 0.9092 ± 0.0031 | AP 0.8119 ± 0.0034
-Validation croisée (probabilités moyennées) — AUC 0.9112 | AP 0.8154
-```
-```text
-CV 5-fold simple (même protocole que §15) — F1 macro 0.8152 ± 0.0660
-```
-```text
-OOF 5×5 (probabilités moyennées) — F1 macro au seuil 0,50 0.8082
-25 plis CV 5×5 — F1 macro moyen 0.8073 ± 0.0466
-```
-```text
-Coût minimal en validation croisée 128 à 0.20 ; plateau 0.20–0.22 ; seuil retenu = 0.21
-Sensibilité du coût : 
-```
-```text
-c_FN=3 → 0.47 (0.39–0.57) ; 
-```
-```text
-c_FN=5 → 0.21 (0.20–0.22) ; 
-```
-```text
-c_FN=10 → 0.20 (0.20–0.20) ; 
-Matrice de confusion OOF (validation croisée 5×5 sur le train) :
-```
-```text
-            Prédit : Non  Prédit : Oui
-Réel : Non           182           117
-Réel : Oui             3           114
-```
-```text
-OOF — TN=182 · FP=117 · FN=3 · TP=114 | n=416 | coût 5·FN+FP=132
-À 0,20 : FN=2 / FP=118 ; à 0,22 : FN=4 / FP=114 — zéro FN et zéro FP simultanés est impossible ici (AUC OOF ≈ 0,911).
-```
-```text
-Triage : Normal < 0.20 | revue humaine 0.20–0.88 | Alerte ≥ 0.88
-AUC test = 0.910 | AP test = 0.810 | Brier = 0.123
-            Config  TN  FP  FN  TP  Rappel Oui  Precision Oui  F1 macro  Coût 5·FN+FP
-        Seuil 0,50  58  17   5  24       0.828          0.585     0.763            42
-Seuil optimal 0.21  47  28   1  28       0.966          0.500     0.712            33
-Triage test : 61/104 automatisés | FN auto 1 | FP auto 1 | revue humaine 43
-```
-```text
-Réel           Non  Oui
-Zone                   
-Alerte           1   14
-Normal          45    1
-Revue humaine   29   14
-```
-```text
-IC95 bootstrap — rappel [0.886 1.   ] | précision [0.368 0.636] | fausse alerte [0.262 0.481]
-```
+
+    CV 5x5 répétée — AUC en validation croisée 0.9092 ± 0.0031 | AP 0.8119 ± 0.0034
+    Validation croisée (probabilités moyennées) — AUC 0.9112 | AP 0.8154
+
+
+    CV 5-fold simple (même protocole que §15) — F1 macro 0.8152 ± 0.0660
+
+
+    OOF 5×5 (probabilités moyennées) — F1 macro au seuil 0,50 0.8082
+    25 plis CV 5×5 — F1 macro moyen 0.8073 ± 0.0466
+
+
+    Coût minimal en validation croisée 128 à 0.20 ; plateau 0.20–0.22 ; seuil retenu = 0.21
+    Sensibilité du coût : 
+
+    c_FN=3 → 0.47 (0.39–0.57) ; 
+
+    c_FN=5 → 0.21 (0.20–0.22) ; 
+
+    c_FN=10 → 0.20 (0.20–0.20) ; 
+    Matrice de confusion OOF (validation croisée 5×5 sur le train) :
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Prédit : Non</th>
+      <th>Prédit : Oui</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Réel : Non</th>
+      <td>182</td>
+      <td>117</td>
+    </tr>
+    <tr>
+      <th>Réel : Oui</th>
+      <td>3</td>
+      <td>114</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    OOF — TN=182 · FP=117 · FN=3 · TP=114 | n=416 | coût 5·FN+FP=132
+    À 0,20 : FN=2 / FP=118 ; à 0,22 : FN=4 / FP=114 — zéro FN et zéro FP simultanés est impossible ici (AUC OOF ≈ 0,911).
+
+
+    Triage : Normal < 0.20 | revue humaine 0.20–0.88 | Alerte ≥ 0.88
+    AUC test = 0.910 | AP test = 0.810 | Brier = 0.123
+                Config  TN  FP  FN  TP  Rappel Oui  Precision Oui  F1 macro  Coût 5·FN+FP
+            Seuil 0,50  58  17   5  24       0.828          0.585     0.763            42
+    Seuil optimal 0.21  47  28   1  28       0.966          0.500     0.712            33
+    Triage test : 61/104 automatisés | FN auto 1 | FP auto 1 | revue humaine 43
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Réel</th>
+      <th>Non</th>
+      <th>Oui</th>
+    </tr>
+    <tr>
+      <th>Zone</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Alerte</th>
+      <td>1</td>
+      <td>14</td>
+    </tr>
+    <tr>
+      <th>Normal</th>
+      <td>45</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>Revue humaine</th>
+      <td>29</td>
+      <td>14</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    IC95 bootstrap — rappel [0.886 1.   ] | précision [0.368 0.636] | fausse alerte [0.262 0.481]
+
 
 ### 17.2 Comment la probabilité `P(Oui)` est calculée — et pourquoi le seuil vaut 0,21
 
@@ -1642,6 +4069,7 @@ Un coefficient positif augmente `z` donc `P(Oui)` ; un coefficient négatif le d
 
 Le jeu de test (104 lignes) n'intervient **jamais** dans ce choix : il est lu une seule fois, au §18, pour mesurer. Les zones `Normal < 0,20`, `revue humaine 0,20–0,88` et `Alerte ≥ 0,88` sont une **action de triage secondaire**, pas une troisième classe : par exemple `P(Oui) = 28 %` donne bien `Oui` (malveillant) avec la zone VIGILANCE.
 
+
 ## 18. Évaluation détaillée des modèles
 
 L'accuracy mesure la proportion de prédictions correctes. La précision indique, pour une classe prédite, quelle part est correcte. Le rappel mesure la part des observations réelles d'une classe retrouvées. Le F1 combine précision et rappel ; le F1 macro donne le même poids à chaque classe, ce qui est nécessaire avec 374 `Non` pour 146 `Oui`.
@@ -1675,6 +4103,8 @@ Le `log_age` et le retrait des variables de bruit font passer l'AUC de **0,866**
 
 C'est ce modèle qui est exporté dans `model.joblib` et utilisé par l'application. Le Random Forest reste une **référence comparative**, pas le modèle déployé.
 
+
+
 ```python
 classes = pipelines["Random_Forest"].named_steps["modele"].classes_
 
@@ -1683,43 +4113,45 @@ for nom, y_pred in predictions.items():
     print("MODÈLE :", nom)
     print(classification_report(y_test, y_pred, zero_division=0))
 ```
-```text
 
-======================================================================
-MODÈLE : Regression_logistique
-              precision    recall  f1-score   support
+    
+    ======================================================================
+    MODÈLE : Regression_logistique
+                  precision    recall  f1-score   support
+    
+             Non       0.88      0.71      0.79        75
+             Oui       0.50      0.76      0.60        29
+    
+        accuracy                           0.72       104
+       macro avg       0.69      0.73      0.69       104
+    weighted avg       0.78      0.72      0.73       104
+    
+    
+    ======================================================================
+    MODÈLE : Random_Forest
+                  precision    recall  f1-score   support
+    
+             Non       0.84      0.89      0.86        75
+             Oui       0.67      0.55      0.60        29
+    
+        accuracy                           0.80       104
+       macro avg       0.75      0.72      0.73       104
+    weighted avg       0.79      0.80      0.79       104
+    
+    
+    ======================================================================
+    MODÈLE : SVM_RBF
+                  precision    recall  f1-score   support
+    
+             Non       0.88      0.71      0.79        75
+             Oui       0.50      0.76      0.60        29
+    
+        accuracy                           0.72       104
+       macro avg       0.69      0.73      0.69       104
+    weighted avg       0.78      0.72      0.73       104
+    
 
-         Non       0.88      0.71      0.79        75
-         Oui       0.50      0.76      0.60        29
 
-    accuracy                           0.72       104
-   macro avg       0.69      0.73      0.69       104
-weighted avg       0.78      0.72      0.73       104
-
-
-======================================================================
-MODÈLE : Random_Forest
-              precision    recall  f1-score   support
-
-         Non       0.84      0.89      0.86        75
-         Oui       0.67      0.55      0.60        29
-
-    accuracy                           0.80       104
-   macro avg       0.75      0.72      0.73       104
-weighted avg       0.79      0.80      0.79       104
-
-
-======================================================================
-MODÈLE : SVM_RBF
-              precision    recall  f1-score   support
-
-         Non       0.88      0.71      0.79        75
-         Oui       0.50      0.76      0.60        29
-
-    accuracy                           0.72       104
-   macro avg       0.69      0.73      0.69       104
-weighted avg       0.78      0.72      0.73       104
-```
 
 ```python
 # Matrices de confusion : une par modèle (effectifs + pourcentages)
@@ -1739,15 +4171,24 @@ for nom, y_pred in predictions.items():
     plt.tight_layout()
     plt.show()
 ```
-```text
-<Figure size 600x500 with 1 Axes>
-```
-```text
-<Figure size 600x500 with 1 Axes>
-```
-```text
-<Figure size 600x500 with 1 Axes>
-```
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_58_0.png)
+    
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_58_1.png)
+    
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_58_2.png)
+    
+
 
 ### 18.3 Rappel — matrice de confusion et métriques
 
@@ -1823,12 +4264,16 @@ Avec des classes 0/1 :
 | **RMSE** | Erreur, pénalise les grosses | ↓ mieux |
 | **R²** | Variance expliquée | ↑ mieux |
 
+
 **Chiffres réels du Random Forest de référence** : le bloc ci-dessus est un exemple pédagogique. Sur notre test (104 messages), le RF **entraîné dans ce notebook**, au seuil 0,50, donne `TN = 67, FP = 8, FN = 13, TP = 16` (accuracy 0,798, rappel `Oui` 0,552). Au seuil 0,30, le même modèle donne `TN = 52, FP = 23, FN = 3, TP = 26`. Ces valeurs sont reproduites dans le tableau du §18.4. Le modèle **retenu** est la régression logistique améliorée, dont la matrice est donnée au §18.5.
+
 
 ### 18.4 Comparer deux seuils sur le modèle de référence
 
 **Tâche** : comparer deux seuils sur le même modèle et le même test, pour voir le compromis FN / FP.
 **Pourquoi** : le seuil 0,30 était posé à la main dans l'ancien protocole. Le seuil du modèle retenu, lui, est appris sur le train (plateau de coût `5·FN + FP` en CV 5×5 répétée : 0,20–0,22, médiane 0,21). Les deux lignes ci-dessous utilisent le RF de référence et le test de 104 messages : seul le seuil change.
+
+
 
 ```python
 # Deux seuils, un seul modèle, un seul jeu de test
@@ -1854,19 +4299,77 @@ comparaison_seuils = pd.DataFrame([
 ])
 display(comparaison_seuils.round(3))
 ```
-```text
-   Seuil  TN  FP  FN  TP  Accuracy  Rappel Oui  Precision Oui  F1 macro
-0    0.5  67   8  13  16     0.798       0.552          0.667     0.734
-1    0.3  52  23   3  26     0.750       0.897          0.531     0.733
-```
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Seuil</th>
+      <th>TN</th>
+      <th>FP</th>
+      <th>FN</th>
+      <th>TP</th>
+      <th>Accuracy</th>
+      <th>Rappel Oui</th>
+      <th>Precision Oui</th>
+      <th>F1 macro</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.5</td>
+      <td>67</td>
+      <td>8</td>
+      <td>13</td>
+      <td>16</td>
+      <td>0.798</td>
+      <td>0.552</td>
+      <td>0.667</td>
+      <td>0.734</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.3</td>
+      <td>52</td>
+      <td>23</td>
+      <td>3</td>
+      <td>26</td>
+      <td>0.750</td>
+      <td>0.897</td>
+      <td>0.531</td>
+      <td>0.733</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 
 **🔎 Interprétation** : à 0,50, le Random Forest de référence manque **13** phishing (`FN = 13`) pour **8** fausses alertes ; à 0,30, il n'en manque plus que **3**, mais génère **23** fausses alertes au lieu de 8. Le coût métier `5·FN + FP` passe de **73** (à 0,50) à **38** (à 0,30). Ce seuil 0,30 était toutefois posé à la main, sans apprentissage sur le train.
 
 **Ce que change le protocole retenu** : la LR améliorée, avec un seuil appris à **0,21** sur les probabilités OOF du train, donne sur le test `TN = 47, FP = 28, FN = 1, TP = 28`, soit un coût **33**. Le choix n'est donc plus manuel : il résulte du plateau **0,20–0,22** issu de la CV 5×5 répétée. Le rapport de coût reste une décision métier : `c_FN = 3` déplacerait le seuil vers 0,47, `c_FN = 10` vers 0,20.
 
+
 ### 18.5 Évaluation finale — matrice de confusion du modèle retenu (test, seuil 0,21)
 
 Ne pas confondre les deux matrices : la **matrice OOF** (§17.1) est calculée sur les 416 lignes du train et sert à apprendre le seuil ; **celle-ci** est l'évaluation finale sur les 104 lignes du test, lues une seule fois : **TN = 47 · FP = 28 · FN = 1 · TP = 28**. Modèle et seuil ont été choisis sur le train uniquement.
+
+
 
 ```python
 # Matrice de confusion du MODÈLE RETENU (régression logistique améliorée)
@@ -1897,18 +4400,22 @@ print(f"Seuil choisi sur le train = {SEUIL_OPT:.2f}")
 print(f"TP = {tp} | TN = {tn} | FP = {fp} | FN = {fn} | total = {total_cm}")
 print(f"Part des messages correctement classés = {(tp + tn) / total_cm:.1%}")
 ```
-```text
-<Figure size 700x500 with 1 Axes>
-```
-```text
-Seuil choisi sur le train = 0.21
-TP = 28 | TN = 47 | FP = 28 | FN = 1 | total = 104
-Part des messages correctement classés = 72.1%
-```
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_65_0.png)
+    
+
+
+    Seuil choisi sur le train = 0.21
+    TP = 28 | TN = 47 | FP = 28 | FN = 1 | total = 104
+    Part des messages correctement classés = 72.1%
+
 
 ### 18.6 Balayage de seuils sur le test — chiffres de l'annexe
 
 Ce tableau ne sert pas à choisir : le seuil retenu reste **0,21**, appris sur le train. Il montre, sur les 104 messages du test, le compromis entre faux négatifs (menaces ratées) et faux positifs (fausses alertes). Les deux dernières lignes appliquent le **triage 3 zones** : un message n'est automatisé que s'il est très sûr (`P(Oui) < seuil bas` ou `P(Oui) >= seuil haut`), sinon il part en revue humaine.
+
 
 ```python
 # Balayage de seuils sur le TEST — lecture descriptive pour l'annexe.
@@ -1936,19 +4443,85 @@ lignes_balayage.append({"Règle": f"Triage {bas2:.2f} / {haut2:.2f}", "FN": int(
 display(pd.DataFrame(lignes_balayage))
 print(f"Rappel du seuil retenu (0,21) : {recall_score(y_te01, (p_test >= SEUIL_OPT).astype(int)):.3f}")
 print("Lecture : 0 FN et 0 FP sur la partie automatisée est possible, mais la revue humaine augmente fortement.")
+
 ```
-```text
-                Règle  FN  FP  Automatisés  Revue
-0   Seuil unique 0.07   0  48          104      0
-1   Seuil unique 0.21   1  28          104      0
-2   Seuil unique 0.98  26   0          104      0
-3  Triage 0.20 / 0.88   1   1           61     43
-4  Triage 0.07 / 0.98   0   0           30     74
-```
-```text
-Rappel du seuil retenu (0,21) : 0.966
-Lecture : 0 FN et 0 FP sur la partie automatisée est possible, mais la revue humaine augmente fortement.
-```
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Règle</th>
+      <th>FN</th>
+      <th>FP</th>
+      <th>Automatisés</th>
+      <th>Revue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Seuil unique 0.07</td>
+      <td>0</td>
+      <td>48</td>
+      <td>104</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Seuil unique 0.21</td>
+      <td>1</td>
+      <td>28</td>
+      <td>104</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Seuil unique 0.98</td>
+      <td>26</td>
+      <td>0</td>
+      <td>104</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Triage 0.20 / 0.88</td>
+      <td>1</td>
+      <td>1</td>
+      <td>61</td>
+      <td>43</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Triage 0.07 / 0.98</td>
+      <td>0</td>
+      <td>0</td>
+      <td>30</td>
+      <td>74</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    Rappel du seuil retenu (0,21) : 0.966
+    Lecture : 0 FN et 0 FP sur la partie automatisée est possible, mais la revue humaine augmente fortement.
+
+
 
 ```python
 # Comparaison visuelle des scores
@@ -1966,12 +4539,17 @@ plt.xticks(rotation=15)
 plt.tight_layout()
 plt.show()
 ```
-```text
-<Figure size 1100x500 with 1 Axes>
-```
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_68_0.png)
+    
+
 
 **Tâche** : calculer l'AUC et tracer les courbes ROC et Precision-Recall pour les trois modèles de référence.
 **Pourquoi** : l'accuracy, la précision et le rappel dépendent d'un seuil unique. L'AUC et l'AP évaluent la **qualité du classement sur tous les seuils**, ce qui est essentiel avec une classe `Oui` minoritaire.
+
+
 
 ```python
 from sklearn.metrics import roc_curve, precision_recall_curve, auc
@@ -2006,15 +4584,60 @@ plt.show()
 auc_df = resultats_df[["Modele", "AUC", "Average_precision"]].copy()
 display(auc_df.round(3))
 ```
-```text
-<Figure size 1300x500 with 2 Axes>
-```
-```text
-                  Modele    AUC  Average_precision
-1          Random_Forest  0.866              0.698
-0  Regression_logistique  0.832              0.656
-2                SVM_RBF  0.834              0.633
-```
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_70_0.png)
+    
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Modele</th>
+      <th>AUC</th>
+      <th>Average_precision</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1</th>
+      <td>Random_Forest</td>
+      <td>0.866</td>
+      <td>0.698</td>
+    </tr>
+    <tr>
+      <th>0</th>
+      <td>Regression_logistique</td>
+      <td>0.832</td>
+      <td>0.656</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>SVM_RBF</td>
+      <td>0.834</td>
+      <td>0.633</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 
 **🔎 Interprétation** : l'AUC est la probabilité qu'un message malveillant reçoive un score `P(Oui)` plus élevé qu'un message légitime. 0,5 = tirage au sort, 1 = séparation parfaite. L'AP résume la courbe Precision-Recall et est plus informative que l'AUC quand la classe positive est minoritaire (ici 28 %).
 
@@ -2024,9 +4647,12 @@ display(auc_df.round(3))
 
 ⚠️ Ces courbes sont calculées sur les **104 messages du test, dont 29 malveillants** : elles donnent une indication, pas une garantie de généralisation à de vrais e-mails.
 
+
 ## 19. Importance des variables sur le train
 
 La permutation importance mesure la baisse de performance lorsqu'on mélange les valeurs d'une variable. Elle est calculée **sur le train (416 messages)**, avec le Random Forest de référence, sans réentraîner le modèle et **sans relire le test**. Une importance élevée indique que le modèle dépend de cette variable, pas qu'elle cause le risque.
+
+
 
 ```python
 meilleur_nom = resultats_df.iloc[0]["Modele"]
@@ -2053,28 +4679,106 @@ for container in ax.containers:
 plt.title(f"Permutation importance — {meilleur_nom} — train seul (n = {len(X_train)})")
 plt.tight_layout()
 plt.show()
+
 ```
-```text
-                 Variable  Importance_moyenne  Ecart_type
-4       domaine_age_jours            0.242940    0.017595
-3           urgence_score            0.155835    0.019130
-6        expediteur_connu            0.146920    0.012907
-2                nb_liens            0.101181    0.009922
-1        longueur_message            0.049192    0.008509
-8  personnalisation_score            0.043761    0.005820
-0             heure_envoi            0.039412    0.008131
-5           fautes_langue            0.020201    0.005820
-7            piece_jointe            0.011470    0.002606
-```
-```text
-<Figure size 900x500 with 1 Axes>
-```
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Variable</th>
+      <th>Importance_moyenne</th>
+      <th>Ecart_type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>4</th>
+      <td>domaine_age_jours</td>
+      <td>0.242940</td>
+      <td>0.017595</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>urgence_score</td>
+      <td>0.155835</td>
+      <td>0.019130</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>expediteur_connu</td>
+      <td>0.146920</td>
+      <td>0.012907</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>nb_liens</td>
+      <td>0.101181</td>
+      <td>0.009922</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>longueur_message</td>
+      <td>0.049192</td>
+      <td>0.008509</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>personnalisation_score</td>
+      <td>0.043761</td>
+      <td>0.005820</td>
+    </tr>
+    <tr>
+      <th>0</th>
+      <td>heure_envoi</td>
+      <td>0.039412</td>
+      <td>0.008131</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>fautes_langue</td>
+      <td>0.020201</td>
+      <td>0.005820</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>piece_jointe</td>
+      <td>0.011470</td>
+      <td>0.002606</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+    
+![png](notebook_ML_IA_confiance_numerique_files/notebook_ML_IA_confiance_numerique_73_1.png)
+    
+
 
 ## 20. Tester un scénario individuel
 
 La fonction ci-dessous reçoit un dictionnaire des variables explicatives. Elle renvoie la classe prédite et les probabilités par classe.
 
 Pour un vrai formulaire Streamlit, reprendre les colonnes de `X.columns` et contrôler les valeurs saisies. Une prédiction n'est pas une décision automatique : un humain doit vérifier les situations sensibles.
+
+
 
 ```python
 # Modèle retenu = régression logistique améliorée (§17).
@@ -2102,12 +4806,14 @@ print("Modèle retenu pour les scénarios :", MODELE_FINAL)
 print("Seuil binaire :", round(SEUIL_OPT, 2),
       "| triage :", round(SEUIL_BAS, 2), "/", round(SEUIL_HAUT, 2))
 print("Variables attendues (brutes) :", X.columns.tolist())
+
 ```
-```text
-Modèle retenu pour les scénarios : Regression_logistique_amelioree
-Seuil binaire : 0.21 | triage : 0.2 / 0.88
-Variables attendues (brutes) : ['heure_envoi', 'longueur_message', 'nb_liens', 'urgence_score', 'domaine_age_jours', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
-```
+
+    Modèle retenu pour les scénarios : Regression_logistique_amelioree
+    Seuil binaire : 0.21 | triage : 0.2 / 0.88
+    Variables attendues (brutes) : ['heure_envoi', 'longueur_message', 'nb_liens', 'urgence_score', 'domaine_age_jours', 'fautes_langue', 'expediteur_connu', 'piece_jointe', 'personnalisation_score']
+
+
 
 ```python
 # Exemple neutre construit automatiquement à partir des médianes/modes du TRAIN.
@@ -2122,22 +4828,65 @@ for col in X.columns:
 display(pd.DataFrame([scenario_exemple]))
 print(predire_scenario(scenario_exemple))
 ```
-```text
-   heure_envoi  longueur_message  nb_liens  urgence_score  domaine_age_jours  \
-0         12.0             423.0       1.0            4.5              531.0   
 
-   fautes_langue  expediteur_connu  piece_jointe  personnalisation_score  
-0            2.0               0.0           0.0                     5.0  
-```
-```text
-{'classe_predite': 'Oui', 'binaire': 'Oui', 'zone': '🟠 VIGILANCE', 'action': 'revue humaine — à vérifier par un analyste', 'P_Oui': 0.3329905876378498, 'verdict': '🟠 VIGILANCE — revue humaine — à vérifier par un analyste', 'probabilites': {'Non': 0.6670094123621502, 'Oui': 0.3329905876378498}}
-```
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>heure_envoi</th>
+      <th>longueur_message</th>
+      <th>nb_liens</th>
+      <th>urgence_score</th>
+      <th>domaine_age_jours</th>
+      <th>fautes_langue</th>
+      <th>expediteur_connu</th>
+      <th>piece_jointe</th>
+      <th>personnalisation_score</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>12.0</td>
+      <td>423.0</td>
+      <td>1.0</td>
+      <td>4.5</td>
+      <td>531.0</td>
+      <td>2.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>5.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+    {'classe_predite': 'Oui', 'binaire': 'Oui', 'zone': '🟠 VIGILANCE', 'action': 'revue humaine — à vérifier par un analyste', 'P_Oui': 0.3329905876378498, 'verdict': '🟠 VIGILANCE — revue humaine — à vérifier par un analyste', 'probabilites': {'Non': 0.6670094123621502, 'Oui': 0.3329905876378498}}
+
 
 ## 21. Sauvegarde du modèle et des artefacts
 
 Le pipeline sauvegardé contient le prétraitement et le modèle : Streamlit le charge sans le réentraîner. On conserve aussi la liste des colonnes, la cible, les seuils et les métriques réellement calculées.
 
 Les valeurs `Dummy` et `KNN` de l'ancien `model_meta.json` ne sont **pas** réexportées : elles ne correspondent à aucun code de ce protocole et n'étaient pas reproductibles.
+
+
 
 ```python
 DOSSIER_SORTIE = Path("artefacts")
@@ -2167,11 +4916,12 @@ with open(DOSSIER_SORTIE / "seuil_phishing_ia.json", "w", encoding="utf-8") as f
                "triage_test": "61/104 automatises, FN 1, FP 1, 43 revues humaines"},
               f, ensure_ascii=False, indent=2)
 print("model.joblib / model_meta.json synchronisés avec le notebook.")
+
 ```
-```text
-Modèle et résultats sauvegardés dans : /home/himawari/Desktop/learn_python/iscae/Mini-projet 3: Veille stratégique – IA et confiance numérique/app_phishing_ia/artefacts
-model.joblib / model_meta.json synchronisés avec le notebook.
-```
+
+    Modèle et résultats sauvegardés dans : /home/himawari/Desktop/learn_python/iscae/Mini-projet 3: Veille stratégique – IA et confiance numérique/app_phishing_ia/artefacts
+    model.joblib / model_meta.json synchronisés avec le notebook.
+
 
 ## 22. Conclusion métier — résultats observés
 
@@ -2192,6 +4942,7 @@ Réponses appuyées sur les sorties réelles (modèle amélioré, CV 5×5 répé
 - Protéger les données et éviter d'intégrer des données personnelles réelles.
 - Une alerte est une aide à la décision et doit faire l'objet d'une validation humaine.
 
+
 ## 23. Rappel des livrables du cahier des charges
 
 - Notebook Jupyter propre et exécutable de haut en bas.
@@ -2201,6 +4952,7 @@ Réponses appuyées sur les sorties réelles (modèle amélioré, CV 5×5 répé
 - Modèle sauvegardé et `requirements.txt`.
 - `README.md` avec installation et lancement.
 - Au moins trois scénarios : normal, à risque et cas limite.
+
 
 ## Annexe — vérifications de cohérence (à montrer au jury)
 
