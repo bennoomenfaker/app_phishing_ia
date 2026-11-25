@@ -1,12 +1,12 @@
 # 03 — Comparaison des modèles et choix final
 
-> **Source de vérité.** Sorties réelles des cellules 60 et 79 du notebook `notebook_ML_IA_confiance_numerique.ipynb`, complétées par `model.joblib` et `model_meta.json`. Données synthétiques et pédagogiques : aucune validation sur de vraies campagnes. Les chiffres historiques annoncés dans les markdown du notebook sont signalés en section 6 lorsqu'ils divergent des sorties réelles ; ils ne sont **pas corrigés** dans le notebook.
+> **Source de vérité.** Sorties réelles du notebook `notebook_ML_IA_confiance_numerique.ipynb`, complétées par `model.joblib` et `model_meta.json`. Données synthétiques et pédagogiques : aucune validation sur de vraies campagnes. Les écarts historiques qui existaient entre markdowns et sorties ont été **corrigés dans le notebook** (section 6).
 
 ---
 
 ## 1. Méthodologie de comparaison
 
-### Protocole historique (cellule 60)
+### Protocole historique (§16)
 
 1. Jeu de 520 lignes uniques, après suppression de 4 doublons exacts.
 2. Split `train_test_split(X, y, test_size=0.20, random_state=42, stratify=y)` : 416 lignes d'entraînement, 104 lignes de test.
@@ -15,7 +15,7 @@
 
 Comparer sur **le même split** est indispensable : toute différence de résultat est alors attribuable au modèle, et non à une partition différente.
 
-### Protocole de validation croisée (cellule 79)
+### Protocole de validation croisée (§15)
 
 Validation croisée à **5 folds simples** sur le jeu d'entraînement : F1 macro moyen avec écart-type, et accuracy moyenne. La CV donne une estimation plus stable que l'évaluation sur un seul split, car chaque observation sert tour à tour à l'apprentissage et à la validation. Les étapes apprenantes (imputation, standardisation) doivent être réajustées dans chaque fold — c'est précisément ce que garantit l'usage d'un `Pipeline`.
 
@@ -35,11 +35,11 @@ Lectures :
 - La **régression logistique historique** et le **SVM RBF** affichent des résultats identiques en accuracy, précision, recall et F1 macro (0,721 / 0,692 / 0,733 / 0,694). Leurs scores de classement diffèrent légèrement : AUC 0,832 contre 0,834, AP 0,656 contre 0,633.
 - Le recall macro (0,733) est supérieur à la précision macro (0,692) pour les deux modèles linéaires : ils ratent moins de messages malveillants mais déclenchent plus de fausses alertes. Le Random Forest présente le profil inverse (précision 0,752 > recall 0,723).
 
-**Toutes les cases du tableau sont renseignées** dans les sorties de la cellule 60. Aucune valeur n'est manquante ici.
+**Toutes les cases du tableau sont renseignées** dans les sorties de la §16. Aucune valeur n'est manquante ici.
 
 ---
 
-## 3. Résultats de validation croisée (5 folds, cellule 79)
+## 3. Résultats de validation croisée (5 folds, §15)
 
 | Modèle | F1 macro (moyenne ± écart-type) | Accuracy (moyenne) |
 |---|---|---:|
@@ -96,33 +96,38 @@ Autrement dit : **un F1 élevé à un seuil donné ne fait pas le meilleur modè
 
 ---
 
-## 6. Incohérences documentées (ne pas corriger le notebook)
+## 6. Écarts historiques — corrigés
 
-### 6.1 Écart entre markdown de la cellule 64 et sorties réelles
+### 6.1 Markdown du Random Forest (ancienne cellule 64)
 
-Le markdown de la **cellule 64** annonce pour le Random Forest :
+L'ancien markdown annonçait `accuracy 0,788`, `F1 macro 0,747` et un `F1 macro CV 0,771 ± 0,048`.
+Les sorties réelles donnent **0,798**, **0,734** et **0,791 ± 0,051**. Le markdown a été réécrit :
+il cite désormais les valeurs des sorties et non les anciennes.
 
-| Quantité | Annoncé (cellule 64) | Sortie réelle | Écart |
-|---|---:|---:|---|
-| Accuracy (test) | 0,788 | 0,798 (cellule 60) | +0,010 |
-| F1 macro (test) | 0,747 | 0,734 (cellule 60) | −0,013 |
-| F1 macro CV | 0,771 ± 0,048 | 0,791 ± 0,051 (cellule 79) | +0,020 sur la moyenne |
+### 6.2 Valeurs `Dummy` / `KNN` de `model_meta.json`
 
-**Les sorties réelles des cellules 60 et 79 font foi.** Le texte de la cellule 64 doit être lu comme une valeur annoncée non concordante. Consigne : **ne pas modifier le notebook**, uniquement signaler l'écart.
+`model_meta.json` contenait `Dummy : 0,419` et `KNN : 0,6314`, produits par aucune cellule du
+notebook. Ces deux entrées ont été **supprimées** lors de la régénération des métadonnées :
+`scores_f1_macro` ne contient plus que les trois modèles réellement comparés
+(`Random_Forest`, `Regression_logistique`, `SVM_RBF`) et la LR améliorée retenue.
 
-### 6.2 Valeurs historiques déclarées dans `model_meta.json`
+### 6.3 Valeurs 0,814 et 0,771 de l'application
 
-`model_meta.json` contient en outre :
+Les pages 5, 6 et 10 affichaient « F1 CV = 0,814 » et « F1 RF = 0,771 ». Aucune des deux n'est
+reproductible. Elles ont été remplacées par les sorties réelles :
 
-| Entrée | Valeur | Statut |
-|---|---:|---|
-| `Dummy` | 0,419 | **Valeur historique déclarée, non reproductible depuis les cellules actuelles** |
-| `KNN` | 0,6314 | **Valeur historique déclarée, non reproductible depuis les cellules actuelles** |
+- **0,8082** — F1 macro OOF 5×5 au seuil 0,50 (probabilités moyennées), désormais imprimé par le notebook ;
+- **0,8073 ± 0,0466** — moyenne des 25 plis F1 macro de la CV 5×5 répétée, également imprimée ;
+- **0,791 ± 0,051** — F1 macro de la CV 5-fold simple du Random Forest.
 
-Les cellules 57–60 du notebook ne comparent que **trois** modèles (`Random_Forest`, `Regression_logistique`, `SVM_RBF`) : ni `Dummy` ni `KNN` n'y sont réentraînés ni réévalués. La métrique exacte associée à ces deux nombres n'est **pas disponible dans les artefacts** ; ils ne doivent donc pas être insérés dans le tableau comparatif de la section 2 ni présentés comme des résultats du protocole actuel.
+### 6.4 Heatmap et importance par permutation
+
+La heatmap est calculée **sur le train seul (416 messages)** et l'image affichée par l'application
+est extraite de cette sortie. La permutation importance est calculée sur `X_train, y_train`
+uniquement, après l'évaluation finale du test.
 
 ---
 
 ## 7. Synthèse
 
-Sur le split historique, le Random Forest est en tête sur la plupart des métriques (accuracy 0,798 ; F1 macro 0,734 ; AUC 0,866 ; AP 0,698) et sur la CV (F1 macro 0,791 ± 0,051). Le modèle final retenu est néanmoins la **régression logistique améliorée**, parce qu'elle offre le meilleur classement hors seuil (AUC 0,910 ; AP 0,810), des probabilités calibrées (Brier 0,123) et l'interprétabilité requise en sécurité, avec un F1 macro de 0,712 au seuil 0,21. Le F1 brut du Random Forest ne justifie pas un choix final s'il est lu sur le test lui-même. Deux séries de valeurs historiques (cellule 64, `model_meta.json`) sont signalées comme non concordantes ou non reproductibles, sans correction du notebook.
+Sur le split historique, le Random Forest est en tête sur la plupart des métriques (accuracy 0,798 ; F1 macro 0,734 ; AUC 0,866 ; AP 0,698) et sur la CV (F1 macro 0,791 ± 0,051). Le modèle final retenu est néanmoins la **régression logistique améliorée**, parce qu'elle offre le meilleur classement hors seuil (AUC 0,910 ; AP 0,810), des probabilités calibrées (Brier 0,123) et l'interprétabilité requise en sécurité, avec un F1 macro de 0,712 au seuil 0,21. Le F1 brut du Random Forest ne justifie pas un choix final s'il est lu sur le test lui-même. Les écarts historiques (markdown du RF, entrées `Dummy`/`KNN`, valeurs 0,814/0,771) ont été corrigés ; le notebook et les métadonnées sont désormais la seule source des chiffres cités.

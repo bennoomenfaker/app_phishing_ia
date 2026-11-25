@@ -303,7 +303,7 @@ Elle ne remplace pas un jeu de test final intact : elle estime la performance pe
 
 ### Utilité dans le projet
 
-La validation croisée à 5 folds (cellule 79) est précisément une estimation de type OOF au sens où chaque observation est évaluée hors de son fold d'apprentissage : F1 macro 0,791 ± 0,051 pour le Random Forest, 0,785 ± 0,067 pour la régression logistique, 0,784 ± 0,018 pour le SVM. C'est sur ce type d'estimation que le choix devrait être fondé, avant évaluation finale sur les 104 lignes de test.
+La validation croisée à 5 folds (§15) est précisément une estimation de type OOF au sens où chaque observation est évaluée hors de son fold d'apprentissage : F1 macro 0,791 ± 0,051 pour le Random Forest, 0,785 ± 0,067 pour la régression logistique, 0,784 ± 0,018 pour le SVM. C'est sur ce type d'estimation que le choix devrait être fondé, avant évaluation finale sur les 104 lignes de test.
 
 ---
 
@@ -339,6 +339,6 @@ Matrice de confusion et courbes (ROC, précision–rappel) sont des **outils de 
 | `Random_Forest` (test 104) | 0,798 | 0,752 | 0,723 | 0,734 | 0,866 | 0,698 |
 | `Regression_logistique` (test 104) | 0,721 | 0,692 | 0,733 | 0,694 | 0,832 | 0,656 |
 | `SVM_RBF` (test 104) | 0,721 | 0,692 | 0,733 | 0,694 | 0,834 | 0,633 |
-| **Modèle retenu** (test) | non disponible dans les artefacts | non disponible dans les artefacts | non disponible dans les artefacts | 0,712 (seuil 0,21) | **0,910** | **0,810** |
+| **Modèle retenu** (test) | 0,721 | 0,740 | 0,796 | 0,712 (seuil 0,21) | **0,910** | **0,810** |
 
-Autres valeurs du modèle retenu : Brier **0,123**. CV 5 folds : **0,791 ± 0,051** (RF), **0,785 ± 0,067** (LR), **0,784 ± 0,018** (SVM) en F1 macro ; accuracy CV **0,839 / 0,810 / 0,815**. Valeurs historiques déclarées dans `model_meta.json` : `Dummy 0,419` et `KNN 0,6314`, non reproductibles depuis les cellules actuelles.
+Autres valeurs du modèle retenu : Brier **0,123**. CV 5 folds : **0,791 ± 0,051** (RF), **0,785 ± 0,067** (LR), **0,784 ± 0,018** (SVM) en F1 macro ; accuracy CV **0,839 / 0,810 / 0,815**. Les entrées historiques `Dummy` et `KNN` ont été **retirées de `model_meta.json`** : aucune cellule du notebook ne les produit.

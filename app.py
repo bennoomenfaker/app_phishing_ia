@@ -52,8 +52,8 @@ CFG = {   'folder': 'app_phishing_ia',
                '2. **Pipeline anti-fuite** : imputation médiane des 10 NA de `domaine_age_jours`, '
                'standardisation des\n'
                '   numériques, one-hot des catégorielles — ajusté sur le train uniquement.\n'
-               '3. **Comparaison** : régression logistique, Random Forest, SVM RBF et KNN ; critère '
-               '= **F1 macro**.\n'
+               '3. **Comparaison** : régression logistique, Random Forest et SVM RBF ; critère '
+               '= **F1 macro** évalué par validation croisée sur le train.\n'
                '4. **Décision binaire** : `P(Oui) >= seuil appris (0,21)` → `Oui`, sinon `Non`. Le seuil vient du train '
                'car un\n'
                "   phishing manqué est plus coûteux qu'une fausse alerte.\n"
@@ -153,7 +153,7 @@ EMPREINTE_CSV = hashlib.sha256(DATA_PATH.read_bytes()).hexdigest()
 MODEL_PATH = ROOT / "model.joblib"
 META_PATH = ROOT / "model_meta.json"
 NOTEBOOK = ROOT / CFG["notebook"]
-# Image exacte de la heatmap du notebook (cellule 41), extraite sans redessin.
+# Image de la heatmap du notebook (§9), calculée sur le train seul, extraite sans redessin.
 HEATMAP_NOTEBOOK = ROOT / "artefacts" / "matrice_correlation_eda.png"
 
 TARGET = CFG["target"]
@@ -200,24 +200,18 @@ CORR_INTERPRETATION = {
 # Résultats réellement produits par le notebook. Les valeurs « historiques » sont
 # déclarées dans model_meta.json mais non reproductibles depuis les cellules actuelles.
 COMPARISON_MODEL = [
-    {"Modèle": "Dummy (historique)", "Accuracy": None, "Precision macro": None,
-     "Recall macro": None, "F1 macro": 0.419, "ROC-AUC": None, "AP": None,
-     "Origine": "model_meta.json — non recomputé"},
-    {"Modèle": "KNN (historique)", "Accuracy": None, "Precision macro": None,
-     "Recall macro": None, "F1 macro": 0.6314, "ROC-AUC": None, "AP": None,
-     "Origine": "model_meta.json — non recomputé"},
     {"Modèle": "Régression logistique", "Accuracy": 0.721, "Precision macro": 0.692,
      "Recall macro": 0.733, "F1 macro": 0.694, "ROC-AUC": 0.832, "AP": 0.656,
-     "Origine": "notebook, cellule 60"},
+     "Origine": "notebook §18.1 — test, seuil 0,50"},
     {"Modèle": "Random Forest", "Accuracy": 0.798, "Precision macro": 0.752,
      "Recall macro": 0.723, "F1 macro": 0.734, "ROC-AUC": 0.866, "AP": 0.698,
-     "Origine": "notebook, cellule 60"},
+     "Origine": "notebook §18.1 — test, seuil 0,50"},
     {"Modèle": "SVM RBF", "Accuracy": 0.721, "Precision macro": 0.692,
      "Recall macro": 0.733, "F1 macro": 0.694, "ROC-AUC": 0.834, "AP": 0.633,
-     "Origine": "notebook, cellule 60"},
+     "Origine": "notebook §18.1 — test, seuil 0,50"},
     {"Modèle": "LR améliorée (retenue)", "Accuracy": 0.721, "Precision macro": None,
      "Recall macro": None, "F1 macro": 0.712, "ROC-AUC": 0.910, "AP": 0.810,
-     "Origine": "notebook, cellule 63 — seuil 0,21"},
+     "Origine": "notebook §18.2 — test, seuil 0,21"},
 ]
 
 # Explication métier de chaque attribut : définition, échelle, exemple,
@@ -1094,13 +1088,13 @@ def heatmap_cm(ax, cm, titre=""):
 def render_correlation_page(propre: pd.DataFrame):
     st.header("3) Analyse des corrélations")
     st.info("La cible est **incluse dans l'analyse statistique** (encodée `Oui = 1`) mais **jamais dans "
-            "X**. Deux lectures distinctes sont affichées : la heatmap **identique au notebook** "
-            "(520 lignes, avant split) et le classement **train uniquement** (416 lignes), sans "
-            "intervention du test.")
+            "X**. Deux lectures distinctes sont affichées, toutes deux calculées sur le **train seul "
+            "(416 messages)** : la heatmap **identique au notebook** et le classement chiffré des "
+            "corrélations avec la cible. Le test n'intervient jamais.")
 
     st.subheader("Heatmap de référence — extraite du notebook")
-    st.caption("Cellule 41 du notebook, image exacte (SHA-256 `631c485f…`), jeu complet de 520 "
-               "messages, `cmap=coolwarm`, cible `Oui = 1`. Aucun recalcul.")
+    st.caption("Heatmap du notebook (§9), image exacte (SHA-256 `5ddaa6e4…`), **train seul de 416 "
+               "messages**, `cmap=vlag`, cible encodée `Oui = 1`. Aucun recalcul.")
     if HEATMAP_NOTEBOOK.exists():
         st.image(str(HEATMAP_NOTEBOOK), **IMG_KW)
     else:
@@ -1259,8 +1253,8 @@ def render_comparison_page(meta: dict):
     - Son coût métier est le plus faible : **33 = 5×1 + 28**, contre 42 au seuil 0,50.
     - Il est **interprétable** : coefficients lisibles et signaux explicables pour un analyste —
       un critère important en sécurité informatique.
-    - Les valeurs `Dummy = 0,419` et `KNN = 0,6314` sont des références historiques déclarées dans
-      `model_meta.json`, non reproductibles depuis les cellules actuelles du notebook.
+    - Son F1 macro en validation croisée 5-fold sur le train vaut **0,815 ± 0,066**, contre 0,791
+      pour le Random Forest : la sélection repose sur le train, pas sur le test.
     """)
     st.info("Les courbes ROC et Precision-Recall multi-modèles ne sont pas affichées ici : les "
             "probabilités des modèles historiques ne sont pas sauvegardées dans les artefacts. "
@@ -1301,11 +1295,11 @@ def render_evaluation_page(propre: pd.DataFrame, meta: dict):
     m5.metric("ROC-AUC", f"{res['auc']:.3f}")
     m6.metric("AP", f"{res['ap']:.3f}")
     m7.metric("Brier", f"{res['brier']:.3f}")
-    m8.metric("F1 macro CV @0,50", "0,808")
+    m8.metric("F1 macro CV @0,50", "0,8082")
     st.caption("AUC : capacité de classement, indépendante du seuil. AP : qualité de la courbe "
                "Precision-Recall sur la classe minoritaire — ce n'est **pas** le rappel. "
                "Brier : fiabilité des probabilités, plus proche de 0 est meilleur. "
-               "Le F1 macro OOF à 0,50 (0,808) n'est pas comparable au F1 test à 0,21 (0,712) : "
+               "Le F1 macro OOF à 0,50 (0,8082) n'est pas comparable au F1 test à 0,21 (0,712) : "
                "seuils et ensembles diffèrent.")
 
     st.subheader("Probabilités prédites et classes réelles")
@@ -1416,8 +1410,8 @@ def render_presentation_mode(propre: pd.DataFrame, meta: dict):
         """),
         ("4. Nettoyage et EDA", """
         10 valeurs manquantes dans `domaine_age_jours`, imputées par médiane dans le pipeline.
-        Les messages malveillants ont un domaine plus récent (338,54 jours contre 897,38),
-        un urgence_score plus élevé (5,54 contre 4,11) et plus de liens (1,86 contre 1,20).
+        Sur le train, les messages malveillants ont un domaine plus récent (340,72 jours contre
+        886,66), un urgence_score plus élevé (5,63 contre 4,15) et plus de liens (1,83 contre 1,20).
         """),
         ("5. Corrélations", """
         Sur le train : `domaine_age_jours` **−0,322**, `urgence_score` **+0,285**,
@@ -1435,10 +1429,10 @@ def render_presentation_mode(propre: pd.DataFrame, meta: dict):
         sur le train de chaque fold : pas de fuite de données.
         """),
         ("8. Comparaison des modèles", """
-        Dummy, KNN, régression logistique, SVM RBF, Random Forest et LR améliorée sont comparés.
-        Le RF a le meilleur F1 brut historique, mais la LR améliorée a la meilleure AUC (0,910),
-        la meilleure AP (0,810) et le coût métier le plus faible (33). Elle est retenue pour sa
-        stabilité et son interprétabilité.
+        Régression logistique, SVM RBF et Random Forest sont comparés par validation croisée
+        5-fold sur le train ; la LR améliorée est ensuite spécialisée. Elle obtient la meilleure
+        AUC (0,910), la meilleure AP (0,810) et le coût métier le plus faible (33) sur le test.
+        Elle est retenue pour sa stabilité et son interprétabilité.
         """),
         ("9. Cross-Validation et OOF", """
         `StratifiedKFold(5)` répété 5 fois = **25 entraînements** sur le train. Chaque observation
@@ -1600,18 +1594,19 @@ elif page_no == 2:
                "variable sépare les classes. Un fort chevauchement signifie qu'aucune variable seule ne "
                "suffit — d'où la combinaison par le modèle.")
 
-    st.subheader("Matrice de corrélation (variables + cible) — identique au notebook")
-    st.caption("Image extraite **byte-à-byte** de la cellule 41 du notebook "
-               "`notebook_ML_IA_confiance_numerique.ipynb` (SHA-256 `631c485f…`). Elle est calculée "
-               "sur le jeu complet de **520 messages**, avant le split : aucune valeur n'a été "
-               "recalculée ni redessinée ici.")
+    st.subheader("Matrice de corrélation (variables + cible) — train seul")
+    st.caption("Image extraite **byte-à-byte** du notebook "
+               "`notebook_ML_IA_confiance_numerique.ipynb` (§9, cellule de corrélations ; "
+               "SHA-256 `5ddaa6e4…`). Elle est calculée sur le **train seul de 416 messages**, "
+               "avant toute lecture du test : aucune valeur n'a été recalculée ni redessinée ici.")
     if HEATMAP_NOTEBOOK.exists():
         st.image(str(HEATMAP_NOTEBOOK), **IMG_KW)
     else:
         st.warning("Heatmap du notebook introuvable : `artefacts/matrice_correlation_eda.png`.")
     st.caption("**Lecture** : la dernière ligne/colonne est la cible encodée `Oui = 1`. Les liens les "
-               "plus nets sont `domaine_age_jours` (−0,329), `urgence_score` (+0,272), `nb_liens` "
-               "(+0,259) et `expediteur_connu` (−0,242) — valeurs lues dans la sortie du notebook. "
+               "plus nets sont `domaine_age_jours` (−0,322), `urgence_score` (+0,285), "
+               "`expediteur_connu` (−0,278) et `nb_liens` (+0,244) — valeurs lues dans la sortie "
+               "du notebook. "
                "**Corrélation ≠ causalité** : il s'agit d'une corrélation point-bisérielle, pas d'une preuve.")
 
     st.subheader("Complément anti-fuite : corrélations sur le train seul (416 lignes)")
@@ -1880,19 +1875,17 @@ elif page_no == 10:
     """)
 
     st.markdown("""
-    **Étape 4 — Comparaison des modèles.** Six modèles sont comparés :
+    **Étape 4 — Comparaison des modèles.** Trois modèles sont comparés dans le notebook :
 
-    1. Dummy Classifier (référence)
-    2. KNN
-    3. Régression logistique
-    4. SVM RBF
-    5. Random Forest
-    6. Régression logistique améliorée (retenue)
+    1. Régression logistique
+    2. SVM RBF
+    3. Random Forest
+    4. Régression logistique améliorée (retenue, spécialisée ensuite)
 
     *Pourquoi comparer plusieurs modèles ?* Pour identifier le meilleur compromis entre performance,
-    interprétabilité et coût métier. Le Random Forest a un F1 supérieur dans la comparaison historique
-    sur le test ; la **régression logistique améliorée** a la meilleure AUC/AP et le coût métier le plus
-    faible. Elle est retenue pour sa stabilité et son interprétabilité, sans choisir sur le test.
+    interprétabilité et coût métier. La sélection se fait par validation croisée 5-fold sur le train ;
+    le test ne sert qu'à mesurer. La **régression logistique améliorée** a la meilleure AUC/AP et le
+    coût métier le plus faible. Elle est retenue pour sa stabilité et son interprétabilité.
     """)
 
     st.markdown("""
@@ -1900,8 +1893,8 @@ elif page_no == 10:
     |---|---|---|
     | ROC-AUC | 0,910 | capacité de discrimination |
     | AP | 0,810 | qualité de la courbe Precision-Recall |
-    | F1 macro — OOF 5×5 du modèle retenu (seuil 0,50) | 0,808 | stabilité sur le train |
-    | F1 macro — CV 5-fold du Random Forest (cellule 79) | 0,791 | comparaison (protocole different) |
+    | F1 macro — OOF 5×5 du modèle retenu (seuil 0,50) | 0,8082 | stabilité sur le train |
+    | F1 macro — CV 5-fold du Random Forest (§15) | 0,791 | comparaison (protocole different) |
 
     **Attention** : AUC et AP ne déterminent pas directement le coût métier. Elles mesurent d'autres
     aspects de la performance.
@@ -2038,7 +2031,7 @@ elif page_no == 10:
        à 0,21 est `5 × 3 + 117 = 132`. La valeur **128 correspond au seuil 0,20** (`5 × 2 + 118`).
     2. **Interprétation de l'AUC.** Elle est indépendante du seuil, mais une AUC élevée ne garantit **pas**
        un faible nombre de FN : le compromis dépend du seuil choisi.
-    3. **CV vs Test.** Le F1 macro OOF de 0,808 (5×5, seuil 0,50) n'est pas directement comparable au
+    3. **CV vs Test.** Le F1 macro OOF de 0,8082 (5×5, seuil 0,50) n'est pas directement comparable au
        F1 macro de 0,712 sur le test au seuil 0,21 : seuils et ensembles diffèrent. Le F1 macro CV du
        Random Forest (0,791) provient d'une CV 5-fold simple : les deux protocoles ne sont pas les mêmes.
     """)
@@ -2204,7 +2197,7 @@ elif page_no == 12:
     3. produire une estimation de F1 macro à seuil fixe.
 
     Avec le pipeline réel, l'OOF donne à {SEUIL:.2f} : **TN 182 / FP 117 / FN 3 / TP 114**,
-    soit un coût de **132** (`5 × 3 + 117`). Le F1 macro OOF 5×5 à 0,50 est **0,808** ;
+    soit un coût de **132** (`5 × 3 + 117`). Le F1 macro OOF 5×5 à 0,50 est **0,8082** ;
     il n'est pas directement comparable au F1 macro final **0,712** (test, seuil 0,21).
     """)
 
@@ -2232,11 +2225,12 @@ elif page_no == 12:
     with tabs2_ml:
         st.markdown("| Protocole | F1 macro | Interprétation |")
         st.markdown("|---|---:|---|")
-        st.markdown("| OOF 5×5, modèle retenu, seuil 0,50 | 0,808 | Stabilité sur le train |")
-        st.markdown("| CV 5-fold, Random Forest (cellule 79) | 0,791 | Autre modèle, autre protocole |")
+        st.markdown("| OOF 5×5, modèle retenu, seuil 0,50 | 0,8082 | Stabilité sur le train |")
+        st.markdown("| CV 5-fold, Random Forest (§15) | 0,791 | Autre modèle, autre protocole |")
         st.markdown("| Test, modèle retenu, seuil 0,21 | 0,712 | Évaluation finale (une seule lecture) |")
-        st.caption("Les valeurs 0,814 et 0,771, héritées du notebook, ne sont pas reproductibles "
-                   "depuis les cellules actuelles : elles ne sont pas reprises ici.")
+        st.caption("Chaque valeur est étiquetée par son protocole : OOF 5×5 et CV 5-fold portent "
+                   "sur le train, la dernière ligne sur le test. Ces valeurs ne sont pas comparables "
+                   "entre elles.")
 
     st.subheader("E. Évaluation finale sur le Test — lue une seule fois")
     test_m = get_deployed_test_metrics(propre, EMPREINTE_CSV, EMPREINTE_CSV)

@@ -56,7 +56,7 @@ L'imputation médiane et la standardisation sont **à l'intérieur du Pipeline**
 |---|---|
 | **1. Accueil / Vue d'ensemble** | Contexte IA générative, questions de recherche, coût du faux négatif, rôle de pré-dépistage |
 | **2. Exploration des données (EDA)** | Métriques du dataset, distribution de la cible, histogrammes par classe, heatmap exacte du notebook + corrélations train |
-| **3. Analyse des corrélations** | Heatmap de l'ipynb (cellule 41), classement train seul commenté, limites de Pearson et de causalité |
+| **3. Analyse des corrélations** | Heatmap de l'ipynb (§9), classement train seul commenté, limites de Pearson et de causalité |
 | **4. Processus Machine Learning** | 12 étapes du CSV au déploiement, détail des 5 plis × 5 répétitions |
 | **5. Comparaison des modèles** | Scores réels, F1 / AUC / AP, justification du choix, valeurs historiques signalées |
 | **6. Évaluation et métriques** | Matrices OOF et test annotées, métriques du pipeline sauvegardé, courbe de coût |

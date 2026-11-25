@@ -62,7 +62,7 @@ couvrent l'intégralité du pipeline.
 |---|---|
 | 1. Accueil / Vue d'ensemble | contexte général, problématique, objectif de pré-dépistage, questions de recherche, erreur la plus coûteuse |
 | 2. Exploration des données (EDA) | KPI de nettoyage, aperçu du CSV, distribution de la cible, histogrammes par classe, heatmap **identique au notebook** + corrélations train |
-| 3. Analyse des corrélations | heatmap exacte de l'ipynb (cellule 41), classement train seul commenté, limites de Pearson et de la causalité |
+| 3. Analyse des corrélations | heatmap exacte de l'ipynb (cellule 31, train seul, 416 messages), classement train seul commenté, limites de Pearson et de la causalité |
 | 4. Processus Machine Learning | schéma et 12 étapes du dataset au déploiement, détail des 5 plis × 5 répétitions |
 | 5. Comparaison des modèles | tableau des scores réellement calculés, graphiques F1 / AUC / AP, justification du choix |
 | 6. Évaluation et métriques | matrices OOF et test annotées, métriques du pipeline sauvegardé, courbe de coût selon le seuil |
@@ -197,14 +197,14 @@ Plan imposé :
 12. Préparation et séparation des données (416 train / 104 test, seed 42)
 13. Modèles comparés et protocole (LR, Random Forest, SVM RBF, LR améliorée ; CV 5-fold sur le train)
 14. Résultats (LR améliorée : AUC 0,910 ; AP 0,810 ; Brier 0,123 ; F1 macro 0,712 au seuil 0,21 ;
-    F1 macro OOF 5×5 = 0,808 au seuil 0,50)
+    F1 macro OOF 5×5 = 0,8082 au seuil 0,50)
 15. Matrice de confusion et coût métier (TN 47, FP 28, FN 1, TP 28 ; coût 5·FN + FP = 33)
 16. Importance des variables et analyse des erreurs (permutation, F1 macro)
 17. Triage 3 zones, limites et perspectives (61/104 automatisés, 1 FN, 1 FP, 43 en revue)
 18. Conclusion et questions
 19. Annexe A — personnalisation_score (0–10 ; exemples générique/personnalisé ;
     moyennes 4,82 vs 5,40 ; r ≈ +0,10 ; ne prouve rien seule)
-20. Annexe B — vérifications et traçabilité (notebook unique réexécuté, 90 cellules, 0 erreur ;
+20. Annexe B — vérifications et traçabilité (notebook unique réexécuté, 82 cellules, 0 erreur ;
     3 cas du formulaire ; FN/FP par seuil et triage zéro erreur 0,07/0,98 → 74/104 en revue)
 
 Points à ne pas rater :
@@ -291,16 +291,18 @@ coexistent dans les artefacts et ne doivent pas être confondus :
 | Régression logistique | 0,785 ± 0,067 | 0,810 |
 | SVM RBF | 0,784 ± 0,018 | 0,815 |
 
-**B. CV 5×5 répétée (graines 42–46) de la section 9 bis, probabilités OOF moyennées :**
+**B. CV 5×5 répétée (graines 42–46) du §17, probabilités OOF moyennées :**
 
 | Modèle | F1 macro OOF au seuil 0,50 | F1 macro moyen des 25 plis |
 |---|---:|---:|
-| **Régression logistique améliorée (retenue)** | **0,808** | 0,807 ± 0,047 |
+| **Régression logistique améliorée (retenue)** | **0,8082** | 0,8073 ± 0,0466 |
 
-La valeur **0,814** anciennement annoncée n'est reproductible depuis aucun artefact. Les valeurs
-historiques `KNN = 0,727` et `Dummy = 0,418` (ou `0,419` selon `model_meta.json`) sont déclarées dans
-les métadonnées mais non recomputées dans les cellules actuelles : elles sont signalées comme telles
-dans `docs/03_model_comparison.md` et `docs/09_audit_findings.md`.
+Les valeurs **0,814** et **0,771** anciennement annoncées ne sont reproductibles depuis aucun
+artefact : elles ont été remplacées par les sorties réelles du notebook, **0,8082** (F1 macro OOF
+5×5 au seuil 0,50, probabilités moyennées) et **0,8073 ± 0,0466** (moyenne des 25 plis). Les
+entrées historiques `KNN` et `Dummy` ont été **retirées de `model_meta.json`** : elles n'étaient
+produites par aucune cellule du notebook. Les trois modèles de référence réellement comparés
+(`Random_Forest`, `Regression_logistique`, `SVM_RBF`) sont les seuls exposés par l'application.
 
 La LR améliorée est retenue pour sa meilleure AUC/AP (0,910 / 0,810), son coût métier minimal (33)
 et son interprétabilité — **pas** en comparant un F1 OOF 5×5 à un F1 CV 5-fold d'un autre modèle.
@@ -379,33 +381,33 @@ Ces vérifications sont aussi résumées dans l'application (pages 6, 9 et 10) e
 **Notebook : un seul exemplaire, réellement exécuté**
 
 - Le notebook du projet est **identique octet pour octet** au notebook réexécuté de zéro
-  (`cmp` → IDENTIQUE) : **90 cellules, 0 erreur**.
+  (`cmp` → IDENTIQUE) : **82 cellules, 0 erreur**.
 - `model.joblib` identique ; `model_meta.json` ne change que des libellés (mêmes seuils, mêmes
   métriques).
-- Le terme **OOF** est conservé et explicité (notebook section 9 bis, application pages 5, 6 et 10) :
+- Le terme **OOF** est conservé et explicité (notebook §17, application pages 5, 6 et 10) :
   il s'agit d'une méthode de production de prédictions hors pli, pas d'une métrique. Résultats
   inchangés : **AUC 0,9092 ± 0,0031**, seuil **0,21**, test **AUC 0,910 / AP 0,810 / Brier 0,123**.
 - Cohérence arithmétique corrigée dans le notebook : au seuil 0,21, le coût OOF vaut
   `5×3 + 117 = 132` ; le coût minimal **128** correspond au seuil 0,20 (`5×2 + 118`).
 - La matrice de corrélation **inclut la cible** (`cible (Oui = 1)`) : on y lit à la fois la
-  redondance entre variables et l'association de chacune avec la malveillance. Les pages 2 et 3
-  affichent désormais la **heatmap exacte du notebook** (cellule 41, image extraite byte-à-byte dans
-  `artefacts/matrice_correlation_eda.png`, calculée sur les 520 lignes avant split). Le classement
-  chiffré complémentaire est calculé sur les **416 lignes du train uniquement** ; les deux protocoles
-  sont distincts et signalés dans `docs/09_audit_findings.md`.
+  redondance entre variables et l'association de chacune avec la malveillance. Elle est calculée
+  **sur le train seul** (cellule 31 : 416 messages, split stratifié `random_state=42`), et
+  l'application affiche cette **heatmap exacte** (image extraite byte-à-byte dans
+  `artefacts/matrice_correlation_eda.png`, SHA-256 `5ddaa6e4c3bb234f4a6df3f2d83da4b09560308ccf684ec115c95212dd45196d`).
+  Le tableau de corrélations de la page 3 et le classement chiffré portent sur **ces mêmes
+  416 lignes** : un seul protocole, plus de mélange train / jeu complet.
 
-**Formulaire de prédiction : trois cas lisibles**
+**Formulaire de prédiction : trois scénarios vérifiés**
 
-| Modèle (même saisie) | P(Oui) | Classe binaire | Zone |
+| Scénario | `P(Oui)` | Classe binaire | Zone |
 |---|---:|---|---|
-| Modèle retenu (joblib) | 28,19 % | Oui — malveillant | 🟠 VIGILANCE |
-| Régression logistique | 44,57 % | Oui — malveillant | 🟠 VIGILANCE |
-| Random Forest | 20,30 % | Non — légitime | 🟠 VIGILANCE |
-| KNN / SVM RBF | 0 % / 17,14 % | Non — légitime | 🟢 NORMAL |
+| 1. Message normal | 0,06 % | `Non` — légitime | 🟢 NORMAL |
+| 2. Phishing typé IA | 100,00 % | `Oui` — malveillant | 🔴 ALERTE |
+| 3. À surveiller | 47,09 % | `Oui` — malveillant | 🟠 VIGILANCE |
 
-Scénarios : **1 → 🟢 Non**, **2 → 🔴 Oui malveillant (100 %)**, **3 → 🟠 Oui + revue humaine
-(47,1 %)**. La classe ne vaut jamais « À vérifier » : elle est `Oui` / `Non`, le triage est une
-colonne séparée.
+La classe ne vaut jamais « À vérifier » : elle est `Oui` / `Non`, le triage est une colonne
+séparée. Les trois probabilités ci-dessus sont reproduites par `model.joblib` avec les saisies
+définies dans `CFG["scenarios"]` de `app.py`.
 
 **FN / FP = 0 sur le test : les chiffres, sans promesse**
 

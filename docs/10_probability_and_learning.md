@@ -96,10 +96,11 @@ une troisième classe et ne modifie pas le verdict.
 - IC95 % bootstrap (2 000 tirages sur le test) : rappel `[0,886 ; 1,000]`, précision
   `[0,368 ; 0,636]`, fausse alerte `[0,262 ; 0,481]`.
 
-**Protocoles distincts** : `0,808` est le F1 macro OOF 5×5 du modèle retenu au seuil 0,50 ;
-`0,791` est le F1 macro de la CV 5-fold simple du Random Forest (cellule 79). Ils ne sont pas
+**Protocoles distincts** : `0,8082` est le F1 macro OOF 5×5 du modèle retenu au seuil 0,50 ;
+`0,791` est le F1 macro de la CV 5-fold simple du Random Forest (§15). Ils ne sont pas
 directement comparables. Les anciennes valeurs `0,814` et `0,771` ne sont pas reproductibles
-depuis les artefacts actuels et ne sont pas reprises.
+depuis les artefacts ; elles ont été remplacées par `0,8082` (OOF 5×5 au seuil 0,50) et
+`0,8073 ± 0,0466` (moyenne des 25 plis), tous deux désormais imprimés par le notebook.
 
 ## 6. Page 12 de l'application et formulaire amélioré
 

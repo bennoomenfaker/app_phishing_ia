@@ -71,51 +71,65 @@ Le déséquilibre est **modéré** (ratio approximatif de 2,6 pour 1). Il n'impo
 
 ---
 
-## 4. Statistiques descriptives (520 lignes uniques)
+## 4. Statistiques descriptives (524 lignes brutes, avant doublons)
+
+Les valeurs ci-dessous sont celles de la cellule 11 du notebook (`df_brut.describe()`), donc sur
+les **524 lignes brutes** du CSV. La déduplication en 520 lignes intervient juste après.
 
 | Variable | Min | Max | Moyenne | Médiane | Écart-type |
 |---|---:|---:|---:|---:|---:|
-| `heure_envoi` | 0 | 23 | 12,21 | 12,5 | 6,88 |
-| `longueur_message` | 60 | 896 | 413,36 | 423 | 163,21 |
-| `nb_liens` | 0 | 5 | 1,38 | 1 | 1,16 |
-| `urgence_score` | 0 | 10 | 4,51 | 4 | 2,37 |
-| `domaine_age_jours` | 1 | 5 874 | 740,68 | 512,5 | 764,34 |
-| `fautes_langue` | 0 | 6 | 2,02 | 2 | 1,39 |
-| `expediteur_connu` | 0 | 1 | 0,44 | 0 | 0,50 |
-| `piece_jointe` | 0 | 1 | 0,23 | 0 | 0,42 |
-| `personnalisation_score` | 0 | 10 | 4,98 | 5 | 2,55 |
+| `heure_envoi` | 0 | 23 | 12,24 | 13,0 | 6,89 |
+| `longueur_message` | 60 | 896 | 413,23 | 423,0 | 162,77 |
+| `nb_liens` | 0 | 5 | 1,39 | 1,0 | 1,17 |
+| `urgence_score` | 0 | 10 | 4,52 | 4,0 | 2,37 |
+| `domaine_age_jours` | 1 | 5 874 | 739,33 | 516,0 | 761,68 |
+| `fautes_langue` | 0 | 6 | 2,02 | 2,0 | 1,39 |
+| `expediteur_connu` | 0 | 1 | 0,44 | 0,0 | 0,50 |
+| `piece_jointe` | 0 | 1 | 0,23 | 0,0 | 0,42 |
+| `personnalisation_score` | 0 | 10 | 4,98 | 5,0 | 2,55 |
+
+`domaine_age_jours` ne compte que **514 valeurs non manquantes** : les 10 valeurs manquantes du jeu
+sont toutes sur cette variable.
 
 **Lectures utiles :**
 
-- `domaine_age_jours` est très dispersée : l'écart-type (764,34) est de l'ordre de la moyenne (740,68) et le maximum (5 874) est très éloigné de la médiane (512,5). Cette asymétrie justifie la transformation logarithmique `log1p` appliquée dans le modèle retenu.
-- `expediteur_connu` et `piece_jointe` sont des indicatrices 0/1 : leur moyenne s'interprète directement comme une proportion (0,44 et 0,23).
-- Les variables `urgence_score` et `personnalisation_score` ont des moyennes proches de 4,5 et 5 sur une échelle 0–10 : pas de saturation apparente.
+- `domaine_age_jours` est très dispersée : l'écart-type (761,68) est de l'ordre de la moyenne
+  (739,33) et le maximum (5 874) est très éloigné de la médiane (516,0). Cette asymétrie justifie
+  la transformation logarithmique `log1p` appliquée dans le modèle retenu.
+- `expediteur_connu` et `piece_jointe` sont des indicatrices 0/1 : leur moyenne s'interprète
+  directement comme une proportion (0,44 et 0,23).
+- Les variables `urgence_score` et `personnalisation_score` ont des moyennes proches de 4,5 et 5
+  sur une échelle 0–10 : pas de saturation apparente.
 
 ---
 
 ## 5. EDA : formes, dispersion et comparaison par classe
 
-Les graphiques du notebook (histogrammes, boxplots, comparaisons par classe) ont les objectifs suivants :
+Les graphiques du notebook (histogrammes, comparaisons par classe et tableau des médianes) ont les objectifs suivants :
 
 - **Histogrammes** : repérer l'asymétrie, les pics et les bornes artificielles. L'asymétrie marquée de `domaine_age_jours` est le cas le plus net.
-- **Boxplots** : visualiser la dispersion et les valeurs extrêmes. Le maximum de `domaine_age_jours` (5 874) ressort comme un point très éloigné du corps de distribution ; il s'agit d'une donnée synthétique et aucune règle de traitement n'est documentée.
+- **Médianes et quartiles par classe** : visualiser la dispersion et les valeurs extrêmes sans être trompé par la moyenne. Le maximum de `domaine_age_jours` (5 874) ressort comme une valeur très éloignée du corps de distribution ; il s'agit d'une donnée synthétique et aucune règle de traitement n'est documentée. Les quartiles du train montrent `Non` : 325–1 175 jours, `Oui` : 72–504 jours.
 - **Comparaison par classe** : vérifier si les distributions se décalent entre messages légitimes et malveillants, avant de traduire ce décalage en corrélation.
 
-### Moyennes par classe
+### Moyennes par classe — train seul (416 messages)
+
+Les valeurs ci-dessous sont celles de la cellule 36 du notebook, calculées sur le **train seul**.
 
 | Variable | Moyenne `Non` | Moyenne `Oui` | Écart observé (Oui − Non) |
 |---|---:|---:|---:|
-| `heure_envoi` | 12,29 | 12,03 | −0,26 |
-| `longueur_message` | 420,65 | 394,66 | −25,99 |
-| `nb_liens` | 1,20 | 1,86 | +0,66 |
-| `urgence_score` | 4,11 | 5,54 | +1,43 |
-| `domaine_age_jours` | 897,38 | 338,54 | −558,84 |
-| `fautes_langue` | 2,05 | 1,95 | −0,10 |
-| `expediteur_connu` | 0,51 | 0,25 | −0,26 |
-| `piece_jointe` | 0,21 | 0,30 | +0,09 |
-| `personnalisation_score` | 4,82 | 5,40 | +0,58 |
+| `heure_envoi` | 12,31 | 11,89 | −0,42 |
+| `longueur_message` | 424,32 | 382,06 | −42,26 |
+| `nb_liens` | 1,20 | 1,83 | +0,63 |
+| `urgence_score` | 4,15 | 5,63 | +1,48 |
+| `domaine_age_jours` | 886,66 | 340,72 | −545,94 |
+| `fautes_langue` | 2,04 | 1,97 | −0,07 |
+| `expediteur_connu` | 0,54 | 0,23 | −0,31 |
+| `piece_jointe` | 0,22 | 0,27 | +0,05 |
+| `personnalisation_score` | 4,81 | 5,58 | +0,77 |
 
 Les écarts les plus marqués concernent `domaine_age_jours`, `urgence_score`, `expediteur_connu` et `nb_liens` — c'est-à-dire les mêmes variables qui ressortent en tête des corrélations avec la cible. Cette cohérence entre EDA visuelle, comparaison de moyennes et corrélation est un bon signe de stabilité du signal exploratoire. À l'inverse, les écarts quasi nuls de `fautes_langue` et `heure_envoi` expliquent leur retrait du modèle amélioré.
+
+Les **médianes** par classe (mêmes 416 lignes) confirment la lecture : `domaine_age_jours` 650,0 (`Non`) contre 234,5 (`Oui`), `urgence_score` 4,0 contre 6,0, `nb_liens` 1,0 contre 2,0, `expediteur_connu` 1,0 contre 0,0, tandis que `fautes_langue` reste à 2,0 dans les deux classes.
 
 ---
 
@@ -132,27 +146,29 @@ La cible étant binaire, il s'agit techniquement d'une **corrélation point-bis�
 | `expediteur_connu` | −0,278 | Un expéditeur connu est associé à moins de malveillance ; son absence constitue un signal de risque. |
 | `nb_liens` | +0,244 | La multiplication des liens accompagne le risque : chaque lien est un point de clic potentiel. |
 | `personnalisation_score` | +0,133 | Lien faible et positif, contre-intuitif à première vue. À ne pas sur-interpréter : Pearson ne capte pas d'éventuel effet non linéaire, et le jeu est synthétique. |
-| `longueur_message` | −0,114 | Signal faible : les messages malveillants sont en moyenne un peu plus courts (394,66 contre 420,65). |
+| `longueur_message` | −0,114 | Signal faible : les messages malveillants sont en moyenne un peu plus courts (382,06 contre 424,32 sur le train). |
 | `piece_jointe` | +0,060 | Très faible signal ; la présence d'une pièce jointe est presque indépendante de la cible dans ce jeu. |
 | `heure_envoi` | −0,027 | Pratiquement nul : l'heure d'envoi n'apporte pas d'information linéaire exploitable ici. |
 | `fautes_langue` | −0,022 | Pratiquement nul, malgré l'intuition fréquente sur les fautes dans les phishing : l'intuition n'est pas confirmée par ce jeu synthétique. |
 
 ### Corrélations entre variables explicatives
 
-Dans le notebook, les corrélations entre explicatives sont **toutes faibles (|r| ≤ 0,07 sur le jeu complet)**. Il n'y a donc **pas de multicolinéarité préoccupante** entre variables brutes. Les interactions construites ensuite dans le modèle (`urgence_score × (1 − expediteur_connu)` et `nb_liens × (1 − expediteur_connu)`) introduisent des dépendances algébriques avec leurs facteurs par construction ; elles sont traitées dans le document `02`.
+Dans le notebook, les corrélations entre explicatives sont **toutes faibles (`|r| ≤ 0,09` sur le train)**. La plus forte est `expediteur_connu` / `domaine_age_jours` (**+0,089**), suivie de `urgence_score` / `expediteur_connu` (**+0,069**) et `piece_jointe` / `expediteur_connu` (**−0,067**). Il n'y a donc **pas de multicolinéarité préoccupante** entre variables brutes. Les interactions construites ensuite dans le modèle (`urgence_score × (1 − expediteur_connu)` et `nb_liens × (1 − expediteur_connu)`) introduisent des dépendances algébriques avec leurs facteurs par construction ; elles sont traitées dans le document `02`.
 
-### Écart méthodologique à documenter : heatmap avant/après split
+### Heatmap et corrélations : un seul périmètre, le train
 
-**Le notebook actuel calcule sa heatmap sur `df`, c'est-à-dire sur le jeu complet avant séparation train/test.** La règle demandée est différente : les statistiques de corrélation doivent être calculées sur **le train uniquement**.
+La heatmap du notebook (cellule 31) est calculée sur **`df_train_eda`, soit 416 messages**, avec le
+même split stratifié (`random_state=42`) que le reste du projet. Le test (104 messages) n'est ni
+affiché ni utilisé dans l'EDA.
 
-- **Risque** : la heatmap « voit » les 104 lignes de test. Même si elle ne modifie pas les coefficients appris par le modèle, elle utilise des informations du jeu d'évaluation pour décrire les relations entre variables ; c'est une forme de fuite informationnelle dans le raisonnement exploratoire, et elle peut orienter le choix des caractéristiques à partir du test.
-- **Règle à appliquer** : fitter toute statistique descriptive sur le train, puis uniquement sur le train. Le tableau ci-dessus respecte cette règle et fait foi.
-- **Consigne** : **ne pas corriger le notebook** dans le cadre de ce travail ; signaler l'écart suffit.
-- **Affichage dans l'application** : à la demande de l'utilisateur, les pages 2 et 3 affichent la
-  **heatmap exacte du notebook** (cellule 41, image extraite sans redessin dans
-  `artefacts/matrice_correlation_eda.png`). Le classement chiffré reste calculé sur le train seul
-  et clairement séparé : l'image est la référence fidèle à l'ipynb, le tableau respecte la règle
-  anti-fuite. Les deux protocoles ne sont pas comparables directement.
+- **Pourquoi c'est important** : une heatmap calculée sur le jeu complet « verrait » les lignes
+  d'évaluation et pourrait orienter le choix des variables à partir du test. Ce n'est plus le cas.
+- **Cohérence** : le tableau de corrélations ci-dessus, le classement de la cellule 33 et la heatmap
+  de la cellule 31 portent tous sur les mêmes 416 lignes. Un seul protocole, donc des chiffres
+  directement comparables.
+- **Affichage dans l'application** : les pages 2 et 3 affichent la **heatmap exacte du notebook**
+  (image extraite sans redessin dans `artefacts/matrice_correlation_eda.png`, SHA-256
+  `5ddaa6e4c3bb234f4a6df3f2d83da4b09560308ccf684ec115c95212dd45196d`).
 
 ---
 
@@ -170,4 +186,4 @@ Dans le notebook, les corrélations entre explicatives sont **toutes faibles (|r
 
 ## 8. Synthèse
 
-Le jeu contient 520 messages uniques, majoritairement légitimes (71,9 %), décrits par 9 variables numériques et une date non utilisée en modèle. Le signal exploratoire est porté principalement par l'âge du domaine, le score d'urgence, la connaissance de l'expéditeur et le nombre de liens. Les corrélations retenues sont calculées sur le train (416 lignes), conformément à la règle anti-fuite, alors que la heatmap du notebook est calculée avant split : cet écart est documenté et non corrigé. L'ensemble reste un exercice pédagogique sur données synthétiques, sans portée opérationnelle.
+Le jeu contient 520 messages uniques, majoritairement légitimes (71,9 %), décrits par 9 variables numériques et une date non utilisée en modèle. Le signal exploratoire est porté principalement par l'âge du domaine, le score d'urgence, la connaissance de l'expéditeur et le nombre de liens. La heatmap, les corrélations et les moyennes par classe sont toutes calculées sur le **train (416 lignes)**, conformément à la règle anti-fuite : le test n'est lu qu'au §18 du notebook. L'ensemble reste un exercice pédagogique sur données synthétiques, sans portée opérationnelle.

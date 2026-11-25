@@ -588,13 +588,13 @@ table(s, 8.05, 1.32, 4.70, 3.60,
       [['Random Forest', '0,866', '0,698', '0,791'],
        ['Régression logistique', '0,832', '0,656', '0,785'],
        ['SVM RBF', '0,834', '0,633', '0,784'],
-       ['LR améliorée (retenue)', '0,910', '0,810', '0,814']],
+       ['LR améliorée (retenue)', '0,910', '0,810', '0,815']],
       widths=[2.2, 1.0, 1.0, 0.9], font=9.5)
 textbox(s, 8.10, 4.98, 4.6, 0.30, 'F1 CV = moyenne des 5 plis sur le train ; la LR améliorée est meilleure en CV et en AUC/AP.',
         8, GRAY, italic=True)
 rect(s, 0.55, 5.15, 12.20, 1.60, LIGHT, BORDER, radius=True)
 textbox(s, 0.75, 5.30, 11.8, 1.35,
-        'Validation croisée 5-fold (train) — critère de sélection : LR améliorée 0,814 > Random Forest 0,791 '
+        'Validation croisée 5-fold (train) — critère de sélection : LR améliorée 0,815 > Random Forest 0,791 '
         '> LR 0,785 > SVM 0,784. Le meilleur modèle en CV est donc la LR améliorée, également meilleure '
         'en AUC/AP (0,910 / 0,810) et en coût métier (33). Le test de 104 messages ne sert qu\'au contrôle final.\n'
         'Métriques adaptées à la classification : Accuracy, Précision, Rappel, F1, AUC. R² n\'est pas pertinent '
