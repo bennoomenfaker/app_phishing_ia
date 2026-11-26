@@ -34,6 +34,25 @@ cd "app_phishing_ia"
 
 L'application s'ouvre sur <http://localhost:8501>.
 
+### Kernel Jupyter (important)
+
+Sur cette machine, `pyarrow 26` du site utilisateur exige NumPy ≥ 2 alors que
+NumPy est en **1.26.4** : `import sklearn` échoue avec
+`pyarrow requires NumPy 2.0 or newer, found 1.26.4`.
+Un kernel dédié **`Phishing IA (pyarrow 17 / NumPy 1.26)`** est enregistré et le notebook est
+désormais configuré pour l'utiliser. Si le notebook est déjà ouvert :
+**Kernel → Change kernel… → Phishing IA (pyarrow 17 / NumPy 1.26)**, puis
+**Restart & Run All**. Vérification dans une cellule :
+
+```python
+import numpy, pyarrow, sklearn
+print(numpy.__version__, pyarrow.__version__, sklearn.__version__)
+# attendu : 1.26.4 17.0.0 1.8.0
+```
+
+Le notebook a été réexécuté intégralement avec ce kernel : **41 cellules de code, 0 erreur**,
+et toutes les valeurs de référence (0,8082 / 0,8073 ± 0,0466 / 0,791 ± 0,051) sont inchangées.
+
 ### Vérification hors-ligne (sans installer de dépendance)
 
 ```bash
