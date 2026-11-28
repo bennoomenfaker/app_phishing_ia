@@ -34,6 +34,30 @@ cd "app_phishing_ia"
 
 L'application s'ouvre sur <http://localhost:8501>.
 
+## Déploiement (Streamlit Community Cloud)
+
+- **Main file** : `app.py`. **Python** : 3.12 ou 3.13 conseillé (Advanced settings).
+- **Dépendances** : `requirements.txt` à la racine, rien d'autre à installer.
+
+⚠️ **Cause d'un échec de déploiement déjà rencontré** : `pyarrow==17.0.0` épinglé pour tous les
+environnements. Sur Python 3.14 (runtime du Cloud), pyarrow 17 n'a **pas de wheel `cp314`** : pip
+tente une compilation depuis les sources et échoue sur
+`ModuleNotFoundError: No module named 'pkg_resources'`. La ligne est désormais conditionnelle :
+
+```text
+pyarrow==17.0.0; python_version < "3.13"
+```
+
+Sur Python 3.13+, pip choisit un pyarrow récent (26.x, wheel `cp314`). Sur le poste local
+(Python 3.11/3.12), on garde 17.0.0 pour rester compatible avec NumPy 1.26.4.
+**Ne pas ré-épingler pyarrow sans condition** : cela casse le Cloud.
+
+Les autres paquets (`pandas`, `numpy`, `scikit-learn`, `matplotlib`, `seaborn`, `joblib`,
+`python-pptx`, `pillow`) disposent de wheels pour Python 3.14.
+
+`jupyter` et `nbformat` sont sortis de `requirements.txt` : ils ne servent qu'à exécuter le
+notebook et alourdissaient le déploiement (laissés en commentaire en bas du fichier).
+
 ### Kernel Jupyter (important)
 
 Sur cette machine, `pyarrow 26` du site utilisateur exige NumPy ≥ 2 alors que
